@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: ['master', 'develop', 'uat']
+  pull_request:
+    branches: ['master', 'develop', 'uat']
+  workflow_dispatch:
+
+# новый push в ту же ветку/PR отменяет незавершённую сборку предыдущего
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Lint, test & build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Format
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      # tsc -b + vite build
+      - name: Build
+        run: npm run build
