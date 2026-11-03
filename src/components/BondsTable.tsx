@@ -1,9 +1,18 @@
 import { Anchor, Stack, Text } from '@mantine/core';
 import { DataTable, type DataTableColumn, type DataTableSortStatus } from 'mantine-datatable';
 import { Link, useNavigate } from 'react-router';
-import type { Bond, BondSortField, Page } from '../api/types';
+import type { Bond, BondSortField, Page, Price } from '../api/types';
 import { PAGE_SIZES, type BondSearchState } from '../lib/bondSearchParams';
-import { formatDate, formatMoney, formatNumber, formatPercent, formatTimeToMaturity, plural } from '../lib/format';
+import {
+  formatDate,
+  formatMoney,
+  formatNumber,
+  formatPercent,
+  formatRub,
+  formatTimeToMaturity,
+  isRubCurrency,
+  plural,
+} from '../lib/format';
 import { RiskBadge } from './RiskBadge';
 
 interface Props {
@@ -20,6 +29,7 @@ const SORT_FIELDS: Record<string, BondSortField> = {
   price: 'PRICE',
   percentagePrice: 'PERCENTAGE_PRICE',
   coupon: 'COUPON_INTEREST',
+  yieldToMaturity: 'YIELD_TO_MATURITY',
   riskLevel: 'RISK_LEVEL',
   maturityDate: 'MATURITY_DATE',
 };
@@ -44,10 +54,10 @@ const columns: DataTableColumn<Bond>[] = [
   { accessor: 'name', title: 'Название', sortable: true, render: (bond) => bond.name ?? '—' },
   {
     accessor: 'price',
-    title: 'Цена',
+    title: 'Цена, ₽',
     sortable: true,
     textAlign: 'right',
-    render: (bond) => formatMoney(bond.price?.current),
+    render: (bond) => <PriceCell price={bond.price} />,
   },
   {
     accessor: 'percentagePrice',
@@ -72,6 +82,13 @@ const columns: DataTableColumn<Bond>[] = [
           </Text>
         </Stack>
       ),
+  },
+  {
+    accessor: 'yieldToMaturity',
+    title: 'Доходность, % год.',
+    sortable: true,
+    textAlign: 'right',
+    render: (bond) => <YieldCell bond={bond} />,
   },
   { accessor: 'riskLevel', title: 'Риск', sortable: true, render: (bond) => <RiskBadge level={bond.riskLevel} /> },
   {
@@ -125,5 +142,38 @@ export function BondsTable({ data, fetching, state, onChange }: Props) {
       recordsPerPageLabel="На странице"
       paginationText={({ from, to, totalRecords }) => `${from}–${to} из ${totalRecords}`}
     />
+  );
+}
+
+/** Цена в рублях - по ней идёт сортировка; у облигаций в валюте под ней цена в валюте облигации */
+function PriceCell({ price }: { price: Price | null }) {
+  const current = price?.current;
+  const foreign = current?.quantity != null && !isRubCurrency(current.currency);
+
+  return (
+    <Stack gap={0} align="flex-end">
+      <Text size="sm">{formatRub(price?.currentInRub)}</Text>
+      {foreign && (
+        <Text size="xs" c="dimmed">
+          {formatMoney(current)}
+        </Text>
+      )}
+    </Stack>
+  );
+}
+
+/** Доходность к погашению - по ней идёт сортировка; если есть оферта, под ней доходность к оферте */
+function YieldCell({ bond }: { bond: Bond }) {
+  const toOffer = bond.coupon?.yieldToOffer;
+
+  return (
+    <Stack gap={0} align="flex-end">
+      <Text size="sm">{formatPercent(bond.coupon?.yieldToMaturity)}</Text>
+      {toOffer != null && (
+        <Text size="xs" c="dimmed">
+          к оферте {formatPercent(toOffer)}
+        </Text>
+      )}
+    </Stack>
   );
 }

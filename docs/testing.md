@@ -1,0 +1,26 @@
+# Тестирование invest-api-ui
+
+```bash
+npm test               # Vitest, один прогон
+npm run lint           # ESLint
+npm run typecheck      # tsc без сборки
+npm run format:check   # Prettier
+```
+
+Vitest с окружением jsdom, глобальные `describe/it/expect`, настройка - `src/test/setup.ts`
+(подключает `@testing-library/jest-dom`). `src/test/render.tsx` рендерит страницу внутри Mantine, TanStack Query
+и memory-роутера, а отдельный компонент - только внутри Mantine. Тесты лежат рядом с кодом: `*.test.ts(x)`.
+
+| Тест                              | Что проверяет                                                 |
+| --------------------------------- | ------------------------------------------------------------- |
+| `lib/bondSearchParams.test.ts`    | разбор и сборка query-строки, умолчания, неизвестные значения |
+| `lib/format.test.ts`              | форматирование денег и валют, процентов, дат, срока до погашения |
+| `components/CouponSchedule.test.tsx` | график купонных выплат                                     |
+| `pages/pages.test.tsx`            | список: запрос по параметрам URL, цена в рублях и в валюте, доходность к погашению и к оферте, сортировка по доходности, смена вкладки, ошибка бэка; карточка: данные, НКД, доходности, оферта и амортизация, рублёвый эквивалент, 404 |
+
+Бэк в тестах не нужен: ответы API мокаются.
+
+## CI
+
+`.github/workflows/ci.yml` на push и PR в master/develop/uat: `npm ci` → `format:check` → `lint` → `test` → `build`.
+Любой шаг валит сборку, поэтому перед коммитом стоит прогнать `npm run format`.

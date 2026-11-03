@@ -1,4 +1,4 @@
-import { formatDate, formatMoney, formatPercent, formatTimeToMaturity } from './format';
+import { formatDate, formatMoney, formatPercent, formatRub, formatTimeToMaturity, isRubCurrency } from './format';
 
 // Intl в ru-RU разделяет разряды неразрывным пробелом
 const normalize = (value: string) => value.replace(/\s/g, ' ');
@@ -11,6 +11,15 @@ describe('format', () => {
     expect(normalize(formatMoney({ quantity: 10, currency: 'xx' }))).toBe('10 XX');
     expect(formatMoney({ quantity: null, currency: 'rub' })).toBe('—');
     expect(formatMoney(null)).toBe('—');
+  });
+
+  it('рубли и код рублёвой валюты', () => {
+    expect(normalize(formatRub(88200))).toBe('88 200,00 ₽');
+    expect(formatRub(null)).toBe('—');
+    expect(isRubCurrency('rub')).toBe(true);
+    expect(isRubCurrency('RUR')).toBe(true);
+    expect(isRubCurrency('usd')).toBe(false);
+    expect(isRubCurrency(null)).toBe(false);
   });
 
   it('проценты и даты', () => {

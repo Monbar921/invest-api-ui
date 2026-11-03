@@ -38,6 +38,16 @@ export function formatMoney(money: Money | null | undefined): string {
   }
 }
 
+export function formatRub(value: number | null | undefined): string {
+  return formatMoney({ quantity: value ?? null, currency: 'rub' });
+}
+
+/** Цена в рублях (бэк отдаёт RUB или устаревший код RUR) - вторая строка с ценой в валюте не нужна */
+export function isRubCurrency(currency: string | null | undefined): boolean {
+  const code = currency?.toUpperCase();
+  return code === 'RUB' || code === 'RUR';
+}
+
 export function formatDate(value: string | null | undefined): string {
   if (!value) {
     return EMPTY;

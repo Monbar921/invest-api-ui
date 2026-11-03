@@ -11,8 +11,12 @@ export interface Price {
   uid: string | null;
   nominal: Money | null;
   current: Money | null;
+  /** Текущая цена в рублях по курсу ЦБ; null - цены или курса нет. По ней сортирует PRICE */
+  currentInRub: number | null;
   /** Текущая цена в процентах от номинала */
   percentagePrice: number | null;
+  /** НКД на одну облигацию */
+  aci: Money | null;
 }
 
 export interface CouponPayment {
@@ -26,6 +30,10 @@ export interface Coupon {
   quantityPerYear: number;
   /** Годовая доходность купона в % */
   interest: number | null;
+  /** Эффективная доходность к погашению в % годовых, с учётом НКД и амортизации; null - посчитать нельзя */
+  yieldToMaturity: number | null;
+  /** Эффективная доходность к оферте в % годовых; null - оферты нет или посчитать нельзя */
+  yieldToOffer: number | null;
   /** График выплат - только в карточке облигации, в списках null */
   couponData: CouponPayment[] | null;
 }
@@ -39,6 +47,10 @@ export interface Bond {
   coupon: Coupon | null;
   riskLevel: RiskLevel | null;
   maturityDate: string | null;
+  /** Дата ближайшей оферты; null - оферты нет */
+  offerDate: string | null;
+  /** Номинал гасится частями */
+  amortizationFlag: boolean;
 }
 
 export interface Page<T> {
@@ -49,7 +61,16 @@ export interface Page<T> {
   totalPages: number;
 }
 
-export type BondSortField = 'RISK_LEVEL' | 'COUPON_INTEREST' | 'MATURITY_DATE' | 'TICKER' | 'NAME' | 'PRICE' | 'PERCENTAGE_PRICE';
+export type BondSortField =
+  | 'RISK_LEVEL'
+  | 'COUPON_INTEREST'
+  | 'MATURITY_DATE'
+  | 'TICKER'
+  | 'NAME'
+  | 'PRICE'
+  | 'PERCENTAGE_PRICE'
+  | 'YIELD_TO_MATURITY'
+  | 'YIELD_TO_OFFER';
 
 export type SortOrder = 'ASC' | 'DESC';
 

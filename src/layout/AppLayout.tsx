@@ -9,8 +9,9 @@ import {
   useComputedColorScheme,
   useMantineColorScheme,
 } from '@mantine/core';
-import { IconChartLine, IconMoon, IconSun } from '@tabler/icons-react';
+import { IconChartLine, IconLogout, IconMoon, IconSun } from '@tabler/icons-react';
 import { Link, Outlet } from 'react-router';
+import { logout } from '../api/client';
 
 export function AppLayout() {
   return (
@@ -26,7 +27,10 @@ export function AppLayout() {
                 </Text>
               </Group>
             </Anchor>
-            <ColorSchemeToggle />
+            <Group gap="xs">
+              <ColorSchemeToggle />
+              <LogoutButton />
+            </Group>
           </Group>
         </Container>
       </AppShell.Header>
@@ -54,6 +58,16 @@ function ColorSchemeToggle() {
         onClick={() => setColorScheme(computed === 'dark' ? 'light' : 'dark')}
       >
         {computed === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
+      </ActionIcon>
+    </Tooltip>
+  );
+}
+
+function LogoutButton() {
+  return (
+    <Tooltip label="Выйти">
+      <ActionIcon variant="default" size="lg" aria-label="Выйти" onClick={() => void logout()}>
+        <IconLogout size={18} />
       </ActionIcon>
     </Tooltip>
   );

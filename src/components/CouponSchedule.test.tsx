@@ -9,7 +9,14 @@ const payment = (paymentDate: string, quantity: number) => ({
   paymentDate,
 });
 
-const coupon = (couponData: Coupon['couponData']): Coupon => ({ uid: 'uid', quantityPerYear: 12, interest: 18.5, couponData });
+const coupon = (couponData: Coupon['couponData']): Coupon => ({
+  uid: 'uid',
+  quantityPerYear: 12,
+  interest: 18.5,
+  yieldToMaturity: null,
+  yieldToOffer: null,
+  couponData,
+});
 
 const normalize = (value: string | null) => value?.replace(/\s/g, ' ');
 

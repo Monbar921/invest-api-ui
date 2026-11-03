@@ -7,7 +7,16 @@ import type { Bond } from '../api/types';
 import { CouponSchedule } from '../components/CouponSchedule';
 import { ErrorState } from '../components/ErrorState';
 import { RiskBadge } from '../components/RiskBadge';
-import { formatDate, formatMoney, formatNumber, formatPercent, formatTimeToMaturity, plural } from '../lib/format';
+import {
+  formatDate,
+  formatMoney,
+  formatNumber,
+  formatPercent,
+  formatRub,
+  formatTimeToMaturity,
+  isRubCurrency,
+  plural,
+} from '../lib/format';
 import { NotFoundPage } from './NotFoundPage';
 
 export function BondPage() {
@@ -55,13 +64,14 @@ function BondDetails({ bond }: { bond: Bond }) {
         </Group>
       </Stack>
 
-      <SimpleGrid cols={{ base: 1, xs: 2, md: 4 }}>
+      <SimpleGrid cols={{ base: 1, xs: 2, md: 3 }}>
+        <Stat label="Текущая цена" value={formatMoney(bond.price?.current)} hint={priceHint(bond)} />
         <Stat
-          label="Текущая цена"
-          value={formatMoney(bond.price?.current)}
-          hint={bond.price?.percentagePrice != null ? `${formatPercent(bond.price.percentagePrice)} от номинала` : 'цены ещё нет'}
+          label="Номинал"
+          value={formatMoney(bond.price?.nominal)}
+          hint={bond.amortizationFlag ? 'с амортизацией: гасится частями' : undefined}
         />
-        <Stat label="Номинал" value={formatMoney(bond.price?.nominal)} />
+        <Stat label="НКД" value={formatMoney(bond.price?.aci)} hint="доплачивается продавцу при покупке" />
         <Stat
           label="Купон"
           value={bond.coupon?.interest != null ? `${formatPercent(bond.coupon.interest)} годовых` : '—'}
@@ -70,6 +80,11 @@ function BondDetails({ bond }: { bond: Bond }) {
               ? `${formatNumber(bond.coupon.quantityPerYear)} ${plural(bond.coupon.quantityPerYear, 'выплата', 'выплаты', 'выплат')} в год`
               : 'данных о купоне нет'
           }
+        />
+        <Stat
+          label="Доходность к погашению"
+          value={bond.coupon?.yieldToMaturity != null ? `${formatPercent(bond.coupon.yieldToMaturity)} годовых` : '—'}
+          hint={yieldHint(bond)}
         />
         <Stat label="Погашение" value={formatDate(bond.maturityDate)} hint={formatTimeToMaturity(bond.maturityDate)} />
       </SimpleGrid>
@@ -116,4 +131,25 @@ function BackLink() {
       </Group>
     </Anchor>
   );
+}
+
+/** «98 % от номинала», у облигаций в валюте ещё и рублёвый эквивалент: «≈ 88 200 ₽ · 98 % от номинала» */
+function priceHint(bond: Bond): string {
+  const price = bond.price;
+  if (price?.percentagePrice == null) {
+    return 'цены ещё нет';
+  }
+
+  const percent = `${formatPercent(price.percentagePrice)} от номинала`;
+  const foreign = price.current?.quantity != null && !isRubCurrency(price.current.currency);
+  return foreign && price.currentInRub != null ? `≈ ${formatRub(price.currentInRub)} · ${percent}` : percent;
+}
+
+/** «к оферте 12,24 % · 13.01.2027»; без оферты - с чем посчитана доходность */
+function yieldHint(bond: Bond): string {
+  if (bond.offerDate) {
+    const toOffer = bond.coupon?.yieldToOffer != null ? `к оферте ${formatPercent(bond.coupon.yieldToOffer)}` : 'оферта';
+    return `${toOffer} · ${formatDate(bond.offerDate)}`;
+  }
+  return 'с учётом цены, НКД и купонов';
 }

@@ -17,6 +17,8 @@ const SORT_FIELDS: BondSortField[] = [
   'NAME',
   'PRICE',
   'PERCENTAGE_PRICE',
+  'YIELD_TO_MATURITY',
+  'YIELD_TO_OFFER',
 ];
 
 export type OfzFilter = 'any' | 'only' | 'exclude';
