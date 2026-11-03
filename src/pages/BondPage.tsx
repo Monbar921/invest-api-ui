@@ -3,11 +3,12 @@ import { IconArrowLeft } from '@tabler/icons-react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { ApiError } from '../api/client';
 import { useBond } from '../api/queries';
-import type { Bond } from '../api/types';
+import type { Bond, Coupon } from '../api/types';
 import { CouponSchedule } from '../components/CouponSchedule';
 import { ErrorState } from '../components/ErrorState';
 import { RiskBadge } from '../components/RiskBadge';
 import {
+  couponTypeLabel,
   formatDate,
   formatMoney,
   formatNumber,
@@ -75,11 +76,7 @@ function BondDetails({ bond }: { bond: Bond }) {
         <Stat
           label="Купон"
           value={bond.coupon?.interest != null ? `${formatPercent(bond.coupon.interest)} годовых` : '—'}
-          hint={
-            bond.coupon
-              ? `${formatNumber(bond.coupon.quantityPerYear)} ${plural(bond.coupon.quantityPerYear, 'выплата', 'выплаты', 'выплат')} в год`
-              : 'данных о купоне нет'
-          }
+          hint={bond.coupon ? couponHint(bond.coupon) : 'данных о купоне нет'}
         />
         <Stat
           label="Доходность к погашению"
@@ -152,4 +149,11 @@ function yieldHint(bond: Bond): string {
     return `${toOffer} · ${formatDate(bond.offerDate)}`;
   }
   return 'с учётом цены, НКД и купонов';
+}
+
+/** «постоянный · 12 выплат в год» */
+function couponHint(coupon: Coupon): string {
+  const payments = `${formatNumber(coupon.quantityPerYear)} ${plural(coupon.quantityPerYear, 'выплата', 'выплаты', 'выплат')} в год`;
+  const type = couponTypeLabel(coupon.isFixed);
+  return type ? `${type} · ${payments}` : payments;
 }

@@ -13,6 +13,7 @@ const coupon = (couponData: Coupon['couponData']): Coupon => ({
   uid: 'uid',
   quantityPerYear: 12,
   interest: 18.5,
+  isFixed: true,
   yieldToMaturity: null,
   yieldToOffer: null,
   couponData,

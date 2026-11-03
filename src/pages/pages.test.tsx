@@ -18,7 +18,15 @@ const bond = (ticker: string, overrides: Partial<Bond> = {}): Bond => ({
     percentagePrice: 95,
     aci: { quantity: 11.72, currency: 'rub' },
   },
-  coupon: { uid: null, quantityPerYear: 4, interest: 12.5, yieldToMaturity: 14.25, yieldToOffer: null, couponData: null },
+  coupon: {
+    uid: null,
+    quantityPerYear: 4,
+    interest: 12.5,
+    isFixed: true,
+    yieldToMaturity: 14.25,
+    yieldToOffer: null,
+    couponData: null,
+  },
   riskLevel: 'RISK_LEVEL_LOW',
   maturityDate: '2030-01-01T00:00:00Z',
   offerDate: null,
@@ -85,7 +93,15 @@ describe('BondsPage', () => {
   it('показывает доходность к погашению, а при оферте - и к оферте', async () => {
     const withOffer = bond('RU000A2', {
       offerDate: '2027-01-13T00:00:00Z',
-      coupon: { uid: null, quantityPerYear: 4, interest: 10, yieldToMaturity: 11.17, yieldToOffer: 12.24, couponData: null },
+      coupon: {
+        uid: null,
+        quantityPerYear: 4,
+        interest: 10,
+        isFixed: false,
+        yieldToMaturity: 11.17,
+        yieldToOffer: 12.24,
+        couponData: null,
+      },
     });
     mockFetch({ body: page([bond('RU000A1'), withOffer]) });
 
@@ -96,6 +112,9 @@ describe('BondsPage', () => {
     expect(screen.getByText('11,17 %')).toBeInTheDocument();
     expect(screen.getByText('12,24 %')).toBeInTheDocument();
     expect(screen.getByText('13.01.2027')).toBeInTheDocument();
+    // тип купона - под купонной доходностью
+    expect(screen.getByText('постоянный · 4 раза в год')).toBeInTheDocument();
+    expect(screen.getByText('переменный · 4 раза в год')).toBeInTheDocument();
   });
 
   it.each([
@@ -155,6 +174,7 @@ describe('BondPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Авто Финанс Банк БО-001Р-18' })).toBeInTheDocument();
     expect(screen.getByText('12,5 % годовых')).toBeInTheDocument();
+    expect(screen.getByText('постоянный · 4 выплаты в год')).toBeInTheDocument();
     expect(screen.getByText('14,25 % годовых')).toBeInTheDocument();
     expect(screen.getByText(byText('11,72 ₽'))).toBeInTheDocument();
     expect(screen.getByText('График выплат ещё не загружен')).toBeInTheDocument();
@@ -175,7 +195,15 @@ describe('BondPage', () => {
       body: bond('RU000A10EHB3', {
         offerDate: '2028-03-01T00:00:00Z',
         amortizationFlag: true,
-        coupon: { uid: null, quantityPerYear: 4, interest: 10, yieldToMaturity: 11.17, yieldToOffer: 12.24, couponData: null },
+        coupon: {
+          uid: null,
+          quantityPerYear: 4,
+          interest: 10,
+          isFixed: false,
+          yieldToMaturity: 11.17,
+          yieldToOffer: 12.24,
+          couponData: null,
+        },
       }),
     });
 

@@ -30,6 +30,8 @@ export interface Coupon {
   quantityPerYear: number;
   /** Годовая доходность купона в % */
   interest: number | null;
+  /** true - постоянный купон, false - переменный (флоатер); null - неизвестно */
+  isFixed: boolean | null;
   /** Эффективная доходность к погашению в % годовых, с учётом НКД и амортизации; null - посчитать нельзя */
   yieldToMaturity: number | null;
   /** Эффективная доходность к оферте в % годовых; null - оферты нет или посчитать нельзя */

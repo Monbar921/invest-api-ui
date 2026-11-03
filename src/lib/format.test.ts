@@ -1,4 +1,12 @@
-import { formatDate, formatMoney, formatPercent, formatRub, formatTimeToMaturity, isRubCurrency } from './format';
+import {
+  couponTypeLabel,
+  formatDate,
+  formatMoney,
+  formatPercent,
+  formatRub,
+  formatTimeToMaturity,
+  isRubCurrency,
+} from './format';
 
 // Intl в ru-RU разделяет разряды неразрывным пробелом
 const normalize = (value: string) => value.replace(/\s/g, ' ');
@@ -40,5 +48,13 @@ describe('format', () => {
     expect(formatTimeToMaturity('2038-12-15T00:00:00', now)).toBe('через 12,2 года');
     expect(formatTimeToMaturity('2041-05-15T00:00:00', now)).toBe('через 14,6 года');
     expect(formatTimeToMaturity('2026-09-01T00:00:00', now)).toBe('погашена');
+  });
+});
+
+describe('couponTypeLabel', () => {
+  it('постоянный, переменный или неизвестный купон', () => {
+    expect(couponTypeLabel(true)).toBe('постоянный');
+    expect(couponTypeLabel(false)).toBe('переменный');
+    expect(couponTypeLabel(null)).toBeNull();
   });
 });

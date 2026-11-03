@@ -104,3 +104,11 @@ export const RISK_LEVELS: Record<RiskLevel, { label: string; color: string }> = 
 
 /** Уровни, по которым имеет смысл фильтровать */
 export const FILTERABLE_RISK_LEVELS: RiskLevel[] = ['RISK_LEVEL_LOW', 'RISK_LEVEL_MODERATE', 'RISK_LEVEL_HIGH'];
+
+/** «постоянный» / «переменный»; null - тип купона неизвестен */
+export function couponTypeLabel(isFixed: boolean | null | undefined): string | null {
+  if (isFixed == null) {
+    return null;
+  }
+  return isFixed ? 'постоянный' : 'переменный';
+}

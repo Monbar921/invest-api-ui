@@ -1,9 +1,10 @@
 import { Anchor, Stack, Text } from '@mantine/core';
 import { DataTable, type DataTableColumn, type DataTableSortStatus } from 'mantine-datatable';
 import { Link, useNavigate } from 'react-router';
-import type { Bond, BondSortField, Page, Price } from '../api/types';
+import type { Bond, BondSortField, Coupon, Page, Price } from '../api/types';
 import { PAGE_SIZES, type BondSearchState } from '../lib/bondSearchParams';
 import {
+  couponTypeLabel,
   formatDate,
   formatMoney,
   formatNumber,
@@ -72,17 +73,7 @@ const columns: DataTableColumn<Bond>[] = [
     title: 'Купон, % год.',
     sortable: true,
     textAlign: 'right',
-    render: (bond) =>
-      bond.coupon?.interest == null ? (
-        '—'
-      ) : (
-        <Stack gap={0} align="flex-end">
-          <Text size="sm">{formatPercent(bond.coupon.interest)}</Text>
-          <Text size="xs" c="dimmed">
-            {formatNumber(bond.coupon.quantityPerYear)} {plural(bond.coupon.quantityPerYear, 'раз', 'раза', 'раз')} в год
-          </Text>
-        </Stack>
-      ),
+    render: (bond) => <CouponCell coupon={bond.coupon} />,
   },
   {
     accessor: 'yieldToMaturity',
@@ -192,6 +183,25 @@ function OfferYieldCell({ bond }: { bond: Bond }) {
       <Text size="sm">{formatPercent(bond.coupon?.yieldToOffer)}</Text>
       <Text size="xs" c="dimmed">
         {formatDate(bond.offerDate)}
+      </Text>
+    </Stack>
+  );
+}
+
+/** Купонная доходность, под ней тип купона и число выплат: «постоянный · 12 раз в год» */
+function CouponCell({ coupon }: { coupon: Coupon | null }) {
+  if (!coupon) {
+    return '—';
+  }
+
+  const payments = `${formatNumber(coupon.quantityPerYear)} ${plural(coupon.quantityPerYear, 'раз', 'раза', 'раз')} в год`;
+  const type = couponTypeLabel(coupon.isFixed);
+
+  return (
+    <Stack gap={0} align="flex-end">
+      <Text size="sm">{formatPercent(coupon.interest)}</Text>
+      <Text size="xs" c="dimmed">
+        {type ? `${type} · ${payments}` : payments}
       </Text>
     </Stack>
   );
