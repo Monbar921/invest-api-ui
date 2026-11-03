@@ -86,14 +86,25 @@ const columns: DataTableColumn<Bond>[] = [
   },
   {
     accessor: 'yieldToMaturity',
-    title: 'К погашению, % год.',
+    // длинные заголовки в две строки, иначе таблица не помещается по ширине
+    title: (
+      <>
+        К погашению,
+        <br />% год.
+      </>
+    ),
     sortable: true,
     textAlign: 'right',
     render: (bond) => formatPercent(bond.coupon?.yieldToMaturity),
   },
   {
     accessor: 'yieldToOffer',
-    title: 'К оферте, % год.',
+    title: (
+      <>
+        К оферте,
+        <br />% год.
+      </>
+    ),
     sortable: true,
     textAlign: 'right',
     render: (bond) => <OfferYieldCell bond={bond} />,

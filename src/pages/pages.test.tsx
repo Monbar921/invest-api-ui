@@ -99,14 +99,17 @@ describe('BondsPage', () => {
   });
 
   it.each([
-    ['К погашению, % год.', 'YIELD_TO_MATURITY'],
-    ['К оферте, % год.', 'YIELD_TO_OFFER'],
+    ['К погашению,', 'YIELD_TO_MATURITY'],
+    ['К оферте,', 'YIELD_TO_OFFER'],
   ])('сортировка по колонке «%s»', async (title, sortField) => {
     const calls = mockFetch({ body: page([bond('RU000A1')]) });
     const { router } = renderRoute(<BondsPage />, { path: '/bonds', url: '/bonds' });
     await screen.findByText('RU000A1');
 
-    await userEvent.click(screen.getByText(title));
+    // заголовок разбит на две строки через <br> - ищем по первой
+    await userEvent.click(
+      screen.getByText((_, element) => element?.tagName !== 'TH' && element?.firstChild?.textContent?.trim() === title),
+    );
 
     await waitFor(() => expect(router.state.location.search).toBe(`?sort=${sortField}%3AASC`));
     await waitFor(() =>
