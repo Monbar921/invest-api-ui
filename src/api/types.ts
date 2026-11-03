@@ -92,6 +92,8 @@ export interface BondParameters {
   percentagePrice?: ValueRange;
   riskLevels?: RiskLevel[];
   isOfz?: boolean;
+  /** true - только постоянный купон, false - только переменный (флоатеры) */
+  isFixedCoupon?: boolean;
 }
 
 /** Выборка облигаций: все, рублёвые или в иностранной валюте */

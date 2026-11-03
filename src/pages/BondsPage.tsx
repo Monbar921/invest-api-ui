@@ -36,6 +36,7 @@ export function BondsPage() {
       percentMax: undefined,
       riskLevels: [],
       ofz: 'any',
+      couponType: 'any',
     });
 
   return (

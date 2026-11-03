@@ -12,13 +12,14 @@ describe('bondSearchParams', () => {
       sortOrder: 'ASC',
       riskLevels: [],
       ofz: 'any',
+      couponType: 'any',
     });
     expect(toSearchParams(state).toString()).toBe('');
   });
 
   it('разбирает и собирает все параметры без потерь', () => {
     const url =
-      'scope=local&page=3&size=100&sort=COUPON_INTEREST%3ADESC&priceMin=900&priceMax=1000.5&percentMax=99&risk=RISK_LEVEL_LOW%2CRISK_LEVEL_HIGH&ofz=exclude';
+      'scope=local&page=3&size=100&sort=COUPON_INTEREST%3ADESC&priceMin=900&priceMax=1000.5&percentMax=99&risk=RISK_LEVEL_LOW%2CRISK_LEVEL_HIGH&ofz=exclude&coupon=floating';
 
     const state = parseBondSearch(new URLSearchParams(url));
 
@@ -34,13 +35,16 @@ describe('bondSearchParams', () => {
       percentMax: 99,
       riskLevels: ['RISK_LEVEL_LOW', 'RISK_LEVEL_HIGH'],
       ofz: 'exclude',
+      couponType: 'floating',
     });
     expect(toSearchParams(state).toString()).toBe(url);
   });
 
   it('мусор в URL заменяется умолчаниями', () => {
     const state = parseBondSearch(
-      new URLSearchParams('scope=crypto&page=-2&size=7&sort=PRICE:UP&priceMin=abc&risk=RISK_LEVEL_UNSPECIFIED,foo&ofz=1'),
+      new URLSearchParams(
+        'scope=crypto&page=-2&size=7&sort=PRICE:UP&priceMin=abc&risk=RISK_LEVEL_UNSPECIFIED,foo&ofz=1&coupon=zero',
+      ),
     );
 
     expect(state).toMatchObject({
@@ -52,13 +56,14 @@ describe('bondSearchParams', () => {
       priceMin: undefined,
       riskLevels: [],
       ofz: 'any',
+      couponType: 'any',
     });
   });
 
   it('собирает тело запроса: пустые фильтры не отправляются', () => {
     const empty = toBondParameters(parseBondSearch(new URLSearchParams()));
     const filtered = toBondParameters(
-      parseBondSearch(new URLSearchParams('priceMax=1000&risk=RISK_LEVEL_LOW&ofz=only&sort=TICKER:DESC')),
+      parseBondSearch(new URLSearchParams('priceMax=1000&risk=RISK_LEVEL_LOW&ofz=only&coupon=fixed&sort=TICKER:DESC')),
     );
 
     expect(empty).toEqual({ bondSorts: [{ sortField: 'PRICE', sortOrder: 'ASC' }] });
@@ -67,6 +72,7 @@ describe('bondSearchParams', () => {
       currentPrice: { max: 1000 },
       riskLevels: ['RISK_LEVEL_LOW'],
       isOfz: true,
+      isFixedCoupon: true,
     });
   });
 });

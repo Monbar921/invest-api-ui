@@ -117,6 +117,17 @@ describe('BondsPage', () => {
     );
   });
 
+  it('фильтр по типу купона попадает в URL и в запрос', async () => {
+    const calls = mockFetch({ body: page([bond('RU000A1')]) });
+    const { router } = renderRoute(<BondsPage />, { path: '/bonds', url: '/bonds' });
+    await screen.findByText('RU000A1');
+
+    await userEvent.click(screen.getByText('Переменный'));
+
+    await waitFor(() => expect(router.state.location.search).toBe('?coupon=floating'));
+    await waitFor(() => expect(JSON.parse(String(calls.at(-1)!.init?.body)).isFixedCoupon).toBe(false));
+  });
+
   it('смена вкладки сбрасывает страницу и сохраняет фильтры в URL', async () => {
     mockFetch({ body: page([bond('RU000A1')]) });
     const { router } = renderRoute(<BondsPage />, { path: '/bonds', url: '/bonds?page=4&ofz=only' });

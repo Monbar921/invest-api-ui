@@ -1,7 +1,7 @@
 import { Button, Group, MultiSelect, Paper, SegmentedControl, Stack, Text } from '@mantine/core';
 import { IconFilterOff } from '@tabler/icons-react';
 import type { RiskLevel } from '../api/types';
-import type { BondSearchState, OfzFilter } from '../lib/bondSearchParams';
+import type { BondSearchState, CouponTypeFilter, OfzFilter } from '../lib/bondSearchParams';
 import { FILTERABLE_RISK_LEVELS, RISK_LEVELS } from '../lib/format';
 import { DebouncedNumberInput } from './DebouncedNumberInput';
 
@@ -19,6 +19,12 @@ const OFZ_OPTIONS: { value: OfzFilter; label: string }[] = [
   { value: 'exclude', label: 'Без ОФЗ' },
 ];
 
+const COUPON_TYPE_OPTIONS: { value: CouponTypeFilter; label: string }[] = [
+  { value: 'any', label: 'Все' },
+  { value: 'fixed', label: 'Постоянный' },
+  { value: 'floating', label: 'Переменный' },
+];
+
 export function BondFilters({ state, onChange, onReset }: Props) {
   const hasFilters =
     state.priceMin !== undefined ||
@@ -26,7 +32,8 @@ export function BondFilters({ state, onChange, onReset }: Props) {
     state.percentMin !== undefined ||
     state.percentMax !== undefined ||
     state.riskLevels.length > 0 ||
-    state.ofz !== 'any';
+    state.ofz !== 'any' ||
+    state.couponType !== 'any';
 
   return (
     <Paper withBorder p="md">
@@ -60,6 +67,16 @@ export function BondFilters({ state, onChange, onReset }: Props) {
             ОФЗ
           </Text>
           <SegmentedControl data={OFZ_OPTIONS} value={state.ofz} onChange={(ofz) => onChange({ ofz: ofz as OfzFilter })} />
+        </Stack>
+        <Stack gap={4}>
+          <Text size="sm" fw={500}>
+            Купон
+          </Text>
+          <SegmentedControl
+            data={COUPON_TYPE_OPTIONS}
+            value={state.couponType}
+            onChange={(couponType) => onChange({ couponType: couponType as CouponTypeFilter })}
+          />
         </Stack>
         <Button variant="subtle" leftSection={<IconFilterOff size={16} />} onClick={onReset} disabled={!hasFilters}>
           Сбросить

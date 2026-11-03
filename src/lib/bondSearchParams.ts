@@ -22,6 +22,8 @@ const SORT_FIELDS: BondSortField[] = [
 ];
 
 export type OfzFilter = 'any' | 'only' | 'exclude';
+/** Тип купона: постоянный (фиксированный) или переменный (флоатер) */
+export type CouponTypeFilter = 'any' | 'fixed' | 'floating';
 
 export interface BondSearchState {
   scope: BondScope;
@@ -36,6 +38,7 @@ export interface BondSearchState {
   percentMax?: number;
   riskLevels: RiskLevel[];
   ofz: OfzFilter;
+  couponType: CouponTypeFilter;
 }
 
 export function parseBondSearch(params: URLSearchParams): BondSearchState {
@@ -55,6 +58,7 @@ export function parseBondSearch(params: URLSearchParams): BondSearchState {
       .split(',')
       .filter((level): level is RiskLevel => FILTERABLE_RISK_LEVELS.includes(level as RiskLevel)),
     ofz: oneOf(params.get('ofz'), ['any', 'only', 'exclude'] as OfzFilter[], 'any'),
+    couponType: oneOf(params.get('coupon'), ['any', 'fixed', 'floating'] as CouponTypeFilter[], 'any'),
   };
 }
 
@@ -77,6 +81,7 @@ export function toSearchParams(state: BondSearchState): URLSearchParams {
   set('percentMax', state.percentMax);
   set('risk', state.riskLevels.join(','));
   set('ofz', state.ofz, 'any');
+  set('coupon', state.couponType, 'any');
 
   return params;
 }
@@ -88,6 +93,7 @@ export function toBondParameters(state: BondSearchState): BondParameters {
     percentagePrice: range(state.percentMin, state.percentMax),
     riskLevels: state.riskLevels.length > 0 ? state.riskLevels : undefined,
     isOfz: state.ofz === 'any' ? undefined : state.ofz === 'only',
+    isFixedCoupon: state.couponType === 'any' ? undefined : state.couponType === 'fixed',
   };
 }
 
