@@ -30,6 +30,7 @@ const SORT_FIELDS: Record<string, BondSortField> = {
   percentagePrice: 'PERCENTAGE_PRICE',
   coupon: 'COUPON_INTEREST',
   yieldToMaturity: 'YIELD_TO_MATURITY',
+  yieldToOffer: 'YIELD_TO_OFFER',
   riskLevel: 'RISK_LEVEL',
   maturityDate: 'MATURITY_DATE',
 };
@@ -85,10 +86,17 @@ const columns: DataTableColumn<Bond>[] = [
   },
   {
     accessor: 'yieldToMaturity',
-    title: 'Доходность, % год.',
+    title: 'К погашению, % год.',
     sortable: true,
     textAlign: 'right',
-    render: (bond) => <YieldCell bond={bond} />,
+    render: (bond) => formatPercent(bond.coupon?.yieldToMaturity),
+  },
+  {
+    accessor: 'yieldToOffer',
+    title: 'К оферте, % год.',
+    sortable: true,
+    textAlign: 'right',
+    render: (bond) => <OfferYieldCell bond={bond} />,
   },
   { accessor: 'riskLevel', title: 'Риск', sortable: true, render: (bond) => <RiskBadge level={bond.riskLevel} /> },
   {
@@ -162,18 +170,18 @@ function PriceCell({ price }: { price: Price | null }) {
   );
 }
 
-/** Доходность к погашению - по ней идёт сортировка; если есть оферта, под ней доходность к оферте */
-function YieldCell({ bond }: { bond: Bond }) {
-  const toOffer = bond.coupon?.yieldToOffer;
+/** Доходность к оферте и под ней дата оферты; без оферты - прочерк */
+function OfferYieldCell({ bond }: { bond: Bond }) {
+  if (!bond.offerDate) {
+    return '—';
+  }
 
   return (
     <Stack gap={0} align="flex-end">
-      <Text size="sm">{formatPercent(bond.coupon?.yieldToMaturity)}</Text>
-      {toOffer != null && (
-        <Text size="xs" c="dimmed">
-          к оферте {formatPercent(toOffer)}
-        </Text>
-      )}
+      <Text size="sm">{formatPercent(bond.coupon?.yieldToOffer)}</Text>
+      <Text size="xs" c="dimmed">
+        {formatDate(bond.offerDate)}
+      </Text>
     </Stack>
   );
 }

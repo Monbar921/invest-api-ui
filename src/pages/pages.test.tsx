@@ -94,22 +94,23 @@ describe('BondsPage', () => {
 
     expect(screen.getByText('14,25 %')).toBeInTheDocument();
     expect(screen.getByText('11,17 %')).toBeInTheDocument();
-    expect(screen.getByText('к оферте 12,24 %')).toBeInTheDocument();
-    expect(screen.getAllByText(/^к оферте/)).toHaveLength(1);
+    expect(screen.getByText('12,24 %')).toBeInTheDocument();
+    expect(screen.getByText('13.01.2027')).toBeInTheDocument();
   });
 
-  it('сортировка по доходности к погашению', async () => {
+  it.each([
+    ['К погашению, % год.', 'YIELD_TO_MATURITY'],
+    ['К оферте, % год.', 'YIELD_TO_OFFER'],
+  ])('сортировка по колонке «%s»', async (title, sortField) => {
     const calls = mockFetch({ body: page([bond('RU000A1')]) });
     const { router } = renderRoute(<BondsPage />, { path: '/bonds', url: '/bonds' });
     await screen.findByText('RU000A1');
 
-    await userEvent.click(screen.getByText('Доходность, % год.'));
+    await userEvent.click(screen.getByText(title));
 
-    await waitFor(() => expect(router.state.location.search).toBe('?sort=YIELD_TO_MATURITY%3AASC'));
+    await waitFor(() => expect(router.state.location.search).toBe(`?sort=${sortField}%3AASC`));
     await waitFor(() =>
-      expect(JSON.parse(String(calls.at(-1)!.init?.body)).bondSorts).toEqual([
-        { sortField: 'YIELD_TO_MATURITY', sortOrder: 'ASC' },
-      ]),
+      expect(JSON.parse(String(calls.at(-1)!.init?.body)).bondSorts).toEqual([{ sortField, sortOrder: 'ASC' }]),
     );
   });
 
