@@ -70,7 +70,13 @@ const columns: DataTableColumn<Bond>[] = [
   },
   {
     accessor: 'coupon',
-    title: 'Купон, % год.',
+    // сумма купонов за год к текущей цене - не ставка купона от номинала
+    title: (
+      <>
+        Купон,
+        <br />% к цене
+      </>
+    ),
     sortable: true,
     textAlign: 'right',
     render: (bond) => <CouponCell coupon={bond.coupon} />,

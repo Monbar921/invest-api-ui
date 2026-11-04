@@ -20,8 +20,8 @@ export function AppLayout() {
     <AppShell header={{ height: 56 }} padding="md">
       <AppShell.Header>
         <Container size="xl" h="100%">
-          <Group h="100%" justify="space-between">
-            <Group gap="lg">
+          <Group h="100%" justify="space-between" wrap="nowrap">
+            <Group gap="lg" wrap="nowrap">
               <Anchor component={Link} to="/bonds" underline="never" c="inherit">
                 <Group gap="xs">
                   <IconChartLine size={24} color="var(--mantine-primary-color-filled)" />
@@ -32,7 +32,7 @@ export function AppLayout() {
               </Anchor>
               <NavButton to="/calculator" icon={<IconCalculator size={18} />} label="Калькулятор" />
             </Group>
-            <Group gap="xs">
+            <Group gap="xs" wrap="nowrap">
               <ColorSchemeToggle />
               <LogoutButton />
             </Group>
@@ -81,11 +81,17 @@ function LogoutButton() {
 /** Пункт меню: подсвечен, пока открыт его раздел */
 function NavButton({ to, icon, label }: { to: string; icon: ReactNode; label: string }) {
   return (
-    <NavLink to={to}>
+    <NavLink to={to} aria-label={label}>
       {({ isActive }) => (
-        <Button component="span" variant={isActive ? 'light' : 'subtle'} leftSection={icon}>
-          {label}
-        </Button>
+        <>
+          <Button component="span" variant={isActive ? 'light' : 'subtle'} leftSection={icon} visibleFrom="xs">
+            {label}
+          </Button>
+          {/* на телефоне подпись не помещается рядом с брендом и кнопками - только иконка */}
+          <ActionIcon component="span" variant={isActive ? 'light' : 'subtle'} size="lg" hiddenFrom="xs">
+            {icon}
+          </ActionIcon>
+        </>
       )}
     </NavLink>
   );

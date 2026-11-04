@@ -138,7 +138,13 @@ export function ProfitCalculator({ bond }: { bond: Bond }) {
                 Продать:
               </Text>
               {offerDate && offerDate > today && (
-                <Button size="xs" variant="light" onClick={() => setSellDate(offerDate)}>
+                <Button
+                  size="xs"
+                  variant="light"
+                  onClick={() => setSellDate(offerDate)}
+                  // оферта до даты покупки - продать в неё уже нельзя
+                  disabled={offerDate <= buyDate}
+                >
                   В оферту {formatDate(offerDate)}
                 </Button>
               )}
@@ -167,10 +173,14 @@ export function ProfitCalculator({ bond }: { bond: Bond }) {
         </Stack>
       </Card>
 
-      {calculation.isError ? (
+      {!valid ? (
+        <Text c="dimmed" ta="center" py="md">
+          Исправьте поля формы — расчёт обновится сам
+        </Text>
+      ) : calculation.isError ? (
         <ErrorState error={calculation.error} onRetry={() => calculation.refetch()} />
       ) : calculation.data ? (
-        <CalculationResult result={calculation.data} updating={calculation.isFetching || !valid} />
+        <CalculationResult result={calculation.data} updating={calculation.isFetching} />
       ) : (
         valid && (
           <Group justify="center" py="md">
@@ -217,11 +227,17 @@ function validate({
   } else if (isIsoDate(buyDate) && sellDate <= buyDate) {
     errors.sellDate = 'Позже даты покупки';
   }
-  if (buyPrice !== undefined && buyPrice <= 0) {
+  if (buyPrice === undefined) {
+    errors.buyPrice = 'Укажите цену';
+  } else if (buyPrice <= 0) {
     errors.buyPrice = 'Больше нуля';
   }
-  if (!exitAtPar && sellPrice !== undefined && sellPrice <= 0) {
-    errors.sellPrice = 'Больше нуля';
+  if (!exitAtPar) {
+    if (sellPrice === undefined) {
+      errors.sellPrice = 'Укажите цену';
+    } else if (sellPrice <= 0) {
+      errors.sellPrice = 'Больше нуля';
+    }
   }
   return errors;
 }
@@ -270,11 +286,7 @@ function CalculationResult({ result, updating }: { result: ProfitCalculation; up
               money={money}
             />
             <Row label="НКД продавцу при покупке" value={-result.purchaseAci} money={money} />
-            <Row
-              label={`Купоны: ${formatNumber(result.couponCount)} ${plural(result.couponCount, 'выплата', 'выплаты', 'выплат')}`}
-              value={result.couponIncome}
-              money={money}
-            />
+            <Row label={couponLabel(result)} value={result.couponIncome} money={money} />
             {result.amortizationIncome > 0 && (
               <Row label="Частичные погашения номинала" value={result.amortizationIncome} money={money} />
             )}
@@ -283,7 +295,9 @@ function CalculationResult({ result, updating }: { result: ProfitCalculation; up
               value={result.exitAmount}
               money={money}
             />
-            {result.exitType !== 'MATURITY' && <Row label="НКД от покупателя при продаже" value={result.exitAci} money={money} />}
+            {(result.exitType === 'SALE' || result.exitAci > 0) && (
+              <Row label="НКД от покупателя при продаже" value={result.exitAci} money={money} />
+            )}
           </Table.Tbody>
         </Table>
       </Card>
@@ -323,10 +337,10 @@ function ResultStat({ label, value, hint, color }: { label: string; value: strin
 function Warnings({ result }: { result: ProfitCalculation }) {
   const warnings = [
     result.unknownCouponCount > 0 &&
-      `Размер ${formatNumber(result.unknownCouponCount)} ${plural(result.unknownCouponCount, 'купона', 'купонов', 'купонов')} ещё не объявлен (переменный купон) - в доход они не вошли.`,
-    result.aciUnknown && 'НКД при покупке или продаже не посчитать: размер текущего купона не объявлен - принят нулевым.',
+      `${plural(result.unknownCouponCount, 'Купон', 'Купоны', 'Купоны')} за период без объявленного размера: ${formatNumber(result.unknownCouponCount)} — в доход не вошли.`,
+    result.aciUnknown && 'НКД при покупке или продаже не посчитать: размер текущего купона не объявлен — принят нулевым.',
     result.amortizationScheduleMissing &&
-      'У облигации амортизация, но график погашений ещё не загружен - частичные погашения номинала не учтены.',
+      'У облигации амортизация, но график погашений ещё не загружен — частичные погашения номинала не учтены.',
   ].filter(Boolean);
 
   if (warnings.length === 0) {
@@ -344,4 +358,15 @@ function Warnings({ result }: { result: ProfitCalculation }) {
       </Stack>
     </Alert>
   );
+}
+
+/** «Купоны: 18 выплат», с необъявленными - «Купоны: 1 выплата, ещё 1 не объявлена» */
+function couponLabel(result: ProfitCalculation): string {
+  const known = result.couponCount - result.unknownCouponCount;
+  const label = `Купоны: ${formatNumber(known)} ${plural(known, 'выплата', 'выплаты', 'выплат')}`;
+  if (result.unknownCouponCount === 0) {
+    return label;
+  }
+  const unknown = result.unknownCouponCount;
+  return `${label}, ещё ${formatNumber(unknown)} ${plural(unknown, 'не объявлена', 'не объявлены', 'не объявлены')}`;
 }

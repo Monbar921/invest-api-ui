@@ -88,7 +88,7 @@ function BondDetails({ bond }: { bond: Bond }) {
         <Stat label="НКД" value={formatMoney(bond.price?.aci)} hint="доплачивается продавцу при покупке" />
         <Stat
           label="Купон"
-          value={bond.coupon?.interest != null ? `${formatPercent(bond.coupon.interest)} годовых` : '—'}
+          value={bond.coupon?.interest != null ? `${formatPercent(bond.coupon.interest)} к цене` : '—'}
           hint={bond.coupon ? couponHint(bond.coupon) : 'данных о купоне нет'}
         />
         <Stat

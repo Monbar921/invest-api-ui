@@ -117,7 +117,9 @@ describe('CalculatorPage', () => {
     expect(screen.getByText('оферты нет')).toBeInTheDocument();
     expect(screen.getByText(byText('75,98 ₽'))).toBeInTheDocument();
     expect(screen.getByText('НДФЛ 13 %')).toBeInTheDocument();
-    expect(screen.getByText(/Размер 2 купонов ещё не объявлен/)).toBeInTheDocument();
+    expect(screen.getByText(/Купоны за период без объявленного размера: 2/)).toBeInTheDocument();
+    // в строке купонов - только учтённые, необъявленные отдельно
+    expect(screen.getByText('Купоны: 45 выплат, ещё 2 не объявлены')).toBeInTheDocument();
 
     // по умолчанию: одна облигация, сегодня по текущей цене, держим до погашения
     const body = JSON.parse(String(calls.find((call) => call.url.endsWith('/calculation'))!.init?.body));
@@ -147,6 +149,43 @@ describe('CalculatorPage', () => {
 
     expect(await screen.findByText(byText('584,49 ₽'))).toBeInTheDocument();
     expect(screen.queryByText('Доход после налога')).not.toBeInTheDocument();
+  });
+
+  it('с ошибкой в форме прячет прошлый результат', async () => {
+    mockApi();
+    renderRoute(<CalculatorPage />, { path: '/calculator', url: '/calculator?ticker=RU000A10DCK7' });
+    await screen.findByText(byText('584,49 ₽'));
+
+    fireEvent.change(screen.getByLabelText('Количество, шт.'), { target: { value: '0' } });
+
+    expect(await screen.findByText('Хотя бы одна облигация')).toBeInTheDocument();
+    // прошлый результат посчитан для других параметров - не показываем его
+    expect(screen.queryByText(byText('584,49 ₽'))).not.toBeInTheDocument();
+    expect(screen.getByText('Исправьте поля формы — расчёт обновится сам')).toBeInTheDocument();
+  });
+
+  it('пустая цена покупки - ошибка, а не текущая цена молча', async () => {
+    mockApi();
+    renderRoute(<CalculatorPage />, { path: '/calculator', url: '/calculator?ticker=RU000A10DCK7' });
+    await screen.findByText(byText('584,49 ₽'));
+
+    await userEvent.clear(screen.getByLabelText('Цена покупки, % номинала'));
+
+    expect(await screen.findByText('Укажите цену')).toBeInTheDocument();
+  });
+
+  it('«В оферту» недоступна, если оферта не позже даты покупки', async () => {
+    vi.stubGlobal('fetch', async (url: string) => {
+      const body = url.endsWith('/calculation') ? calculation : { ...bond, offerDate: '2028-03-01T00:00:00Z' };
+      return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    });
+    renderRoute(<CalculatorPage />, { path: '/calculator', url: '/calculator?ticker=RU000A10DCK7' });
+    const offerButton = await screen.findByRole('button', { name: 'В оферту 01.03.2028' });
+    expect(offerButton).toBeEnabled();
+
+    fireEvent.change(screen.getByLabelText('Дата покупки'), { target: { value: '2028-06-01' } });
+
+    await waitFor(() => expect(offerButton).toBeDisabled());
   });
 
   it('не считает с неверным периодом', async () => {

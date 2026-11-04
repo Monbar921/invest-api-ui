@@ -174,7 +174,7 @@ describe('BondPage', () => {
     renderRoute(<BondPage />, { path: '/bonds/:ticker', url: '/bonds/RU000A10EQ34' });
 
     expect(await screen.findByRole('heading', { name: 'Авто Финанс Банк БО-001Р-18' })).toBeInTheDocument();
-    expect(screen.getByText('12,5 % годовых')).toBeInTheDocument();
+    expect(screen.getByText('12,5 % к цене')).toBeInTheDocument();
     expect(screen.getByText('постоянный · 4 выплаты в год')).toBeInTheDocument();
     expect(screen.getByText('14,25 % годовых')).toBeInTheDocument();
     expect(screen.getByText(byText('11,72 ₽'))).toBeInTheDocument();
