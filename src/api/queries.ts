@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { calculateProfit, fetchBond, fetchBondsPage, searchBonds } from './bonds';
+import { calculateProfit, fetchBond, fetchBondsPage, fetchCandles, searchBonds } from './bonds';
 import { ApiError } from './client';
-import type { BondParameters, BondScope, ProfitCalculationRequest } from './types';
+import type { BondParameters, BondScope, CandleInterval, ProfitCalculationRequest } from './types';
 
 export const bondKeys = {
   all: ['bonds'] as const,
@@ -11,6 +11,8 @@ export const bondKeys = {
   search: (query: string) => [...bondKeys.all, 'search', query] as const,
   calculation: (ticker: string, parameters: ProfitCalculationRequest) =>
     [...bondKeys.all, 'calculation', ticker, parameters] as const,
+  candles: (ticker: string, interval: CandleInterval, from: string | undefined) =>
+    [...bondKeys.all, 'candles', ticker, interval, from ?? 'all'] as const,
 };
 
 /** Как и на бэке: запрос короче двух символов ничего не ищет */
@@ -53,5 +55,16 @@ export function useProfitCalculation(ticker: string, parameters: ProfitCalculati
     placeholderData: keepPreviousData,
     // 422 - параметры не подходят облигации, повтор не поможет
     retry: (failureCount, error) => !(error instanceof ApiError && error.status < 500) && failureCount < 2,
+  });
+}
+
+export function useBondCandles(ticker: string, interval: CandleInterval, from: string | undefined) {
+  return useQuery({
+    queryKey: bondKeys.candles(ticker, interval, from),
+    queryFn: () => fetchCandles(ticker, interval, from),
+    // при смене интервала или периода график не пропадает, пока грузится новый
+    placeholderData: keepPreviousData,
+    // свечи обновляются раз в сутки ночной синхронизацией
+    staleTime: 5 * 60 * 1000,
   });
 }

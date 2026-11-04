@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { ApiError } from '../api/client';
 import { useBond } from '../api/queries';
 import type { Bond, Coupon } from '../api/types';
+import { BondPriceChart } from '../components/BondPriceChart';
 import { CouponSchedule } from '../components/CouponSchedule';
 import { ErrorState } from '../components/ErrorState';
 import { RiskBadge } from '../components/RiskBadge';
@@ -98,6 +99,8 @@ function BondDetails({ bond }: { bond: Bond }) {
         />
         <Stat label="Погашение" value={formatDate(bond.maturityDate)} hint={formatTimeToMaturity(bond.maturityDate)} />
       </SimpleGrid>
+
+      <BondPriceChart ticker={bond.ticker} />
 
       <CouponSchedule coupon={bond.coupon} />
     </Stack>

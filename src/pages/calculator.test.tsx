@@ -83,7 +83,13 @@ function mockApi() {
   const calls: { url: string; init?: RequestInit }[] = [];
   vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
     calls.push({ url, init });
-    const body = url.includes('/search') ? [found] : url.endsWith('/calculation') ? calculation : bond;
+    const body = url.includes('/search')
+      ? [found]
+      : url.includes('/candles')
+        ? [] // свечи графика в карточке облигации
+        : url.endsWith('/calculation')
+          ? calculation
+          : bond;
     return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
   });
   return calls;

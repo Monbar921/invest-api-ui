@@ -161,5 +161,19 @@ export interface ProfitCalculation {
   amortizationScheduleMissing: boolean;
 }
 
+/** Интервал свечей графика: день, неделя (с понедельника), месяц */
+export type CandleInterval = 'DAY' | 'WEEK' | 'MONTH';
+
+/** Свеча цены в % от номинала; date - YYYY-MM-DD, у недели и месяца - первый день периода */
+export interface Candle {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  /** Объём в лотах */
+  volume: number;
+}
+
 /** Выборка облигаций: все, рублёвые или в иностранной валюте */
 export type BondScope = 'all' | 'local' | 'foreign';

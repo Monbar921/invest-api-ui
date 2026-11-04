@@ -169,7 +169,8 @@ describe('BondsPage', () => {
 
 describe('BondPage', () => {
   it('показывает карточку облигации', async () => {
-    const calls = mockFetch({ body: bond('RU000A10EQ34', { name: 'Авто Финанс Банк БО-001Р-18' }) });
+    // второй запрос - свечи графика цены
+    const calls = mockFetch({ body: bond('RU000A10EQ34', { name: 'Авто Финанс Банк БО-001Р-18' }) }, { body: [] });
 
     renderRoute(<BondPage />, { path: '/bonds/:ticker', url: '/bonds/RU000A10EQ34' });
 
@@ -183,7 +184,7 @@ describe('BondPage', () => {
   });
 
   it('у облигации в валюте показывает рублёвый эквивалент', async () => {
-    mockFetch({ body: usdBond('RU000A105A95') });
+    mockFetch({ body: usdBond('RU000A105A95') }, { body: [] });
 
     renderRoute(<BondPage />, { path: '/bonds/:ticker', url: '/bonds/RU000A105A95' });
 

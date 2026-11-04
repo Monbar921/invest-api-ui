@@ -1,5 +1,15 @@
 import { request } from './client';
-import type { Bond, BondParameters, BondScope, BondSearchItem, Page, ProfitCalculation, ProfitCalculationRequest } from './types';
+import type {
+  Bond,
+  BondParameters,
+  BondScope,
+  BondSearchItem,
+  Candle,
+  CandleInterval,
+  Page,
+  ProfitCalculation,
+  ProfitCalculationRequest,
+} from './types';
 
 const BONDS_PATH = '/api/bonds';
 
@@ -25,4 +35,13 @@ export function calculateProfit(ticker: string, parameters: ProfitCalculationReq
     method: 'POST',
     body: JSON.stringify(parameters),
   });
+}
+
+/** Свечи за период с from (YYYY-MM-DD) по сегодня; без from - вся история */
+export function fetchCandles(ticker: string, interval: CandleInterval, from?: string): Promise<Candle[]> {
+  const params = new URLSearchParams({ interval });
+  if (from) {
+    params.set('from', from);
+  }
+  return request<Candle[]>(`${BONDS_PATH}/${encodeURIComponent(ticker)}/candles?${params}`);
 }
