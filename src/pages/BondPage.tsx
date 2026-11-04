@@ -1,6 +1,6 @@
-import { Anchor, Badge, Card, Group, Loader, SimpleGrid, Stack, Text, Title } from '@mantine/core';
-import { IconArrowLeft } from '@tabler/icons-react';
-import { useLocation, useNavigate, useParams } from 'react-router';
+import { Anchor, Badge, Button, Card, Group, Loader, SimpleGrid, Stack, Text, Title } from '@mantine/core';
+import { IconArrowLeft, IconCalculator } from '@tabler/icons-react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { ApiError } from '../api/client';
 import { useBond } from '../api/queries';
 import type { Bond, Coupon } from '../api/types';
@@ -14,6 +14,7 @@ import {
   formatNumber,
   formatPercent,
   formatRub,
+  formatSector,
   formatTimeToMaturity,
   isRubCurrency,
   plural,
@@ -62,7 +63,19 @@ function BondDetails({ bond }: { bond: Bond }) {
             </Badge>
           )}
           <RiskBadge level={bond.riskLevel} />
+          <Text size="sm" c="dimmed">
+            {formatSector(bond.sector)}
+          </Text>
         </Group>
+        <Button
+          component={Link}
+          to={`/calculator?ticker=${encodeURIComponent(bond.ticker)}`}
+          variant="light"
+          leftSection={<IconCalculator size={16} />}
+          w="fit-content"
+        >
+          Рассчитать доход
+        </Button>
       </Stack>
 
       <SimpleGrid cols={{ base: 1, xs: 2, md: 3 }}>

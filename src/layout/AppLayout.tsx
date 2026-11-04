@@ -2,6 +2,7 @@ import {
   ActionIcon,
   Anchor,
   AppShell,
+  Button,
   Container,
   Group,
   Text,
@@ -9,8 +10,9 @@ import {
   useComputedColorScheme,
   useMantineColorScheme,
 } from '@mantine/core';
-import { IconChartLine, IconLogout, IconMoon, IconSun } from '@tabler/icons-react';
-import { Link, Outlet } from 'react-router';
+import { IconCalculator, IconChartLine, IconLogout, IconMoon, IconSun } from '@tabler/icons-react';
+import type { ReactNode } from 'react';
+import { Link, NavLink, Outlet } from 'react-router';
 import { logout } from '../api/client';
 
 export function AppLayout() {
@@ -19,14 +21,17 @@ export function AppLayout() {
       <AppShell.Header>
         <Container size="xl" h="100%">
           <Group h="100%" justify="space-between">
-            <Anchor component={Link} to="/bonds" underline="never" c="inherit">
-              <Group gap="xs">
-                <IconChartLine size={24} color="var(--mantine-primary-color-filled)" />
-                <Text fw={600} size="lg">
-                  Облигации
-                </Text>
-              </Group>
-            </Anchor>
+            <Group gap="lg">
+              <Anchor component={Link} to="/bonds" underline="never" c="inherit">
+                <Group gap="xs">
+                  <IconChartLine size={24} color="var(--mantine-primary-color-filled)" />
+                  <Text fw={600} size="lg">
+                    Облигации
+                  </Text>
+                </Group>
+              </Anchor>
+              <NavButton to="/calculator" icon={<IconCalculator size={18} />} label="Калькулятор" />
+            </Group>
             <Group gap="xs">
               <ColorSchemeToggle />
               <LogoutButton />
@@ -70,5 +75,18 @@ function LogoutButton() {
         <IconLogout size={18} />
       </ActionIcon>
     </Tooltip>
+  );
+}
+
+/** Пункт меню: подсвечен, пока открыт его раздел */
+function NavButton({ to, icon, label }: { to: string; icon: ReactNode; label: string }) {
+  return (
+    <NavLink to={to}>
+      {({ isActive }) => (
+        <Button component="span" variant={isActive ? 'light' : 'subtle'} leftSection={icon}>
+          {label}
+        </Button>
+      )}
+    </NavLink>
   );
 }

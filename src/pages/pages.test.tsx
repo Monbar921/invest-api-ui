@@ -10,6 +10,7 @@ const bond = (ticker: string, overrides: Partial<Bond> = {}): Bond => ({
   uid: `uid-${ticker}`,
   isin: ticker,
   name: `Облигация ${ticker}`,
+  sector: 'financial',
   price: {
     uid: null,
     nominal: { quantity: 1000, currency: 'rub' },

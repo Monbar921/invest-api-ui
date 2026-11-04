@@ -14,6 +14,10 @@ export const router = createBrowserRouter([
         // карточка тянет за собой графики (recharts) - грузим её отдельным чанком, только когда открывают
         lazy: () => import('./pages/BondPage').then((module) => ({ Component: module.BondPage })),
       },
+      {
+        path: 'calculator',
+        lazy: () => import('./pages/CalculatorPage').then((module) => ({ Component: module.CalculatorPage })),
+      },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

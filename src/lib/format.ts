@@ -112,3 +112,27 @@ export function couponTypeLabel(isFixed: boolean | null | undefined): string | n
   }
   return isFixed ? 'постоянный' : 'переменный';
 }
+
+/** Сектор из T-Invest API (government, financial, ...) по-русски; неизвестный код - как есть */
+const SECTORS: Record<string, string> = {
+  government: 'Госсектор',
+  municipal: 'Муниципальные',
+  financial: 'Финансы',
+  energy: 'Энергетика',
+  utilities: 'Электроэнергетика',
+  industrials: 'Промышленность',
+  consumer: 'Потребительский',
+  telecom: 'Телекоммуникации',
+  it: 'IT',
+  real_estate: 'Недвижимость',
+  materials: 'Сырьё',
+  health_care: 'Здравоохранение',
+  other: 'Другое',
+};
+
+export function formatSector(sector: string | null | undefined): string {
+  if (!sector) {
+    return EMPTY;
+  }
+  return SECTORS[sector.toLowerCase()] ?? sector;
+}

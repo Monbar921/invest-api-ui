@@ -45,6 +45,7 @@ export interface Bond {
   uid: string;
   isin: string | null;
   name: string | null;
+  sector: string | null;
   price: Price | null;
   coupon: Coupon | null;
   riskLevel: RiskLevel | null;
@@ -96,6 +97,68 @@ export interface BondParameters {
   isOfz?: boolean;
   /** true - только постоянный купон, false - только переменный (флоатеры) */
   isFixedCoupon?: boolean;
+}
+
+/** Облигация в результатах поиска - только общие сведения */
+export interface BondSearchItem {
+  ticker: string;
+  uid: string;
+  isin: string | null;
+  name: string | null;
+  sector: string | null;
+  currency: string | null;
+  riskLevel: RiskLevel | null;
+  maturityDate: string | null;
+}
+
+/** Параметры калькулятора дохода; даты - YYYY-MM-DD, все поля необязательны */
+export interface ProfitCalculationRequest {
+  buyDate?: string;
+  /** Не раньше погашения - держим до погашения, в дату оферты - выкуп по номиналу */
+  sellDate?: string;
+  quantity?: number;
+  /** Цена покупки в % от номинала; не задана - текущая */
+  buyPricePercent?: number;
+  /** Цена продажи в % от номинала; не задана - текущая */
+  sellPricePercent?: number;
+  /** Ставка НДФЛ в %; не задана - налог не учитывается */
+  taxRatePercent?: number;
+}
+
+/** Как облигация выходит из позиции: продажа, выкуп по оферте или погашение */
+export type ExitType = 'SALE' | 'OFFER' | 'MATURITY';
+
+/** Доход за период. Суммы - на всё количество, в валюте номинала */
+export interface ProfitCalculation {
+  ticker: string;
+  currency: string;
+  quantity: number;
+  buyDate: string;
+  sellDate: string;
+  days: number;
+  exitType: ExitType;
+  buyPricePercent: number;
+  sellPricePercent: number;
+  purchaseAmount: number;
+  purchaseAci: number;
+  couponIncome: number;
+  couponCount: number;
+  amortizationIncome: number;
+  exitAmount: number;
+  exitAci: number;
+  profit: number;
+  profitPercent: number;
+  /** % годовых без сложного процента */
+  annualProfitPercent: number;
+  /** Ставка НДФЛ в %; null - налог не учитывался */
+  taxRatePercent: number | null;
+  /** НДФЛ с положительного дохода; без налога - 0 */
+  tax: number;
+  netProfit: number;
+  netProfitPercent: number;
+  unknownCouponCount: number;
+  aciUnknown: boolean;
+  amortizationScheduleMissing: boolean;
 }
 
 /** Выборка облигаций: все, рублёвые или в иностранной валюте */

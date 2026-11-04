@@ -1,5 +1,5 @@
 import { request } from './client';
-import type { Bond, BondParameters, BondScope, Page } from './types';
+import type { Bond, BondParameters, BondScope, BondSearchItem, Page, ProfitCalculation, ProfitCalculationRequest } from './types';
 
 const BONDS_PATH = '/api/bonds';
 
@@ -13,4 +13,16 @@ export function fetchBondsPage(scope: BondScope, page: number, size: number, par
 
 export function fetchBond(ticker: string): Promise<Bond> {
   return request<Bond>(`${BONDS_PATH}/${encodeURIComponent(ticker)}`);
+}
+
+export function searchBonds(query: string, limit = 20): Promise<BondSearchItem[]> {
+  const params = new URLSearchParams({ query, limit: String(limit) });
+  return request<BondSearchItem[]>(`${BONDS_PATH}/search?${params}`);
+}
+
+export function calculateProfit(ticker: string, parameters: ProfitCalculationRequest): Promise<ProfitCalculation> {
+  return request<ProfitCalculation>(`${BONDS_PATH}/${encodeURIComponent(ticker)}/calculation`, {
+    method: 'POST',
+    body: JSON.stringify(parameters),
+  });
 }
