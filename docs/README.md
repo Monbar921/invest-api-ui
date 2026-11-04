@@ -15,4 +15,4 @@
 
 - [INVEST-001-bond-yield](../../invest-api/docs/features/INVEST-001-bond-yield/) - доходности, тип купона, фильтр по купону
 - [INVEST-001-revenue-calculator](../../invest-api/docs/features/INVEST-001-revenue-calculator/) - калькулятор дохода
-- [INVEST-002-price-chart](../../invest-api/docs/features/INVEST-002-price-chart/) - график цены
+- [INVEST-001-price-chart](../../invest-api/docs/features/INVEST-001-price-chart/) - график цены
