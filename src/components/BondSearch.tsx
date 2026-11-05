@@ -14,6 +14,8 @@ interface Props {
   /** Название выбранной облигации - чтобы показать её, даже если её нет в последних подсказках */
   selectedName?: string | null;
   onChange: (ticker: string | null) => void;
+  /** Подпись поля; по умолчанию «Облигация» */
+  label?: string;
 }
 
 interface Option extends ComboboxItem {
@@ -23,7 +25,7 @@ interface Option extends ComboboxItem {
 const label = (ticker: string, name: string | null | undefined) => (name ? `${ticker} — ${name}` : ticker);
 
 /** Нестрогий поиск облигации по тикеру, ISIN или названию: подсказки приходят с бэка по мере ввода */
-export function BondSearch({ value, selectedName, onChange }: Props) {
+export function BondSearch({ value, selectedName, onChange, label: fieldLabel = 'Облигация' }: Props) {
   const selectedLabel = value ? label(value, selectedName) : null;
   const [search, setSearch] = useState(selectedLabel ?? '');
   const [prevLabel, setPrevLabel] = useState(selectedLabel);
@@ -55,7 +57,7 @@ export function BondSearch({ value, selectedName, onChange }: Props) {
 
   return (
     <Select
-      label="Облигация"
+      label={fieldLabel}
       placeholder="Тикер, ISIN или название"
       leftSection={<IconSearch size={16} />}
       rightSection={result.isFetching ? <Loader size="xs" /> : undefined}

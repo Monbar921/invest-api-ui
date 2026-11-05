@@ -148,6 +148,36 @@ describe('BondsPage', () => {
     await waitFor(() => expect(JSON.parse(String(calls.at(-1)!.init?.body)).isFixedCoupon).toBe(false));
   });
 
+  it('поиск облигации открывает её карточку', async () => {
+    const found = {
+      ticker: 'RU000A10DCK7',
+      uid: 'uid-1',
+      isin: 'RU000A10DCK7',
+      name: 'АБЗ-1 002P-04',
+      sector: null,
+      currency: 'rub',
+      riskLevel: null,
+      maturityDate: null,
+    };
+    const urls: string[] = [];
+    vi.stubGlobal('fetch', async (url: string) => {
+      urls.push(url);
+      const body = url.includes('/search') ? [found] : page([bond('RU000A1')]);
+      return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    });
+    const { router } = renderRoute(<BondsPage />, { path: '/bonds', url: '/bonds?coupon=fixed' });
+    await screen.findByText('RU000A1');
+
+    await userEvent.type(screen.getByPlaceholderText('Тикер, ISIN или название'), 'абз');
+    await userEvent.click(await screen.findByText('АБЗ-1 002P-04'));
+
+    // ищем по всем облигациям, а не по текущей выборке с фильтрами
+    expect(urls.filter((url) => url.includes('/search'))).toEqual([
+      `/api/bonds/search?query=${encodeURIComponent('абз')}&limit=20`,
+    ]);
+    await waitFor(() => expect(router.state.location.pathname).toBe('/bonds/RU000A10DCK7'));
+  });
+
   it('смена вкладки сбрасывает страницу и сохраняет фильтры в URL', async () => {
     mockFetch({ body: page([bond('RU000A1')]) });
     const { router } = renderRoute(<BondsPage />, { path: '/bonds', url: '/bonds?page=4&ofz=only' });
