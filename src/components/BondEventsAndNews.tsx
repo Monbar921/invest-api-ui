@@ -24,7 +24,7 @@ interface Props {
 
 /**
  * События по бумаге и новости - на разных вкладках: события считаются из графика выплат и дат выпуска,
- * новости приходят от Банка России и Мосбиржи.
+ * новости приходят от Мосбиржи, рейтинговых агентств и СМИ.
  */
 export function BondEventsAndNews({ ticker, now = new Date() }: Props) {
   return (
@@ -151,7 +151,7 @@ function BondNews({ ticker }: { ticker: string }) {
   return (
     <Stack gap="sm">
       <Text size="xs" c="dimmed">
-        Сообщения Мосбиржи, где упомянут выпуск или его эмитент
+        Где упомянут выпуск или его эмитент: Мосбиржа, рейтинговые агентства АКРА и НКР, СМИ
       </Text>
       <NewsList
         items={query.data.pages.flatMap((page) => page.content)}

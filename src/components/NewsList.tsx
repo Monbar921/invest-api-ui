@@ -3,12 +3,22 @@ import { IconExternalLink } from '@tabler/icons-react';
 import { Fragment } from 'react';
 import { Link } from 'react-router';
 import type { NewsItem, NewsSource } from '../api/types';
-import { formatDateTime } from '../lib/format';
+import { formatDate, formatDateTime } from '../lib/format';
 
-const NEWS_SOURCES: Record<NewsSource, { label: string; color: string }> = {
+/** dateOnly - у релизов агентств нет времени, бэк ставит начало дня по Москве: время не показываем */
+const NEWS_SOURCES: Record<NewsSource, { label: string; color: string; dateOnly?: boolean }> = {
   CBR_PRESS: { label: 'Банк России', color: 'blue' },
   CBR_EVENT: { label: 'Банк России', color: 'blue' },
   MOEX: { label: 'Мосбиржа', color: 'grape' },
+  ACRA: { label: 'АКРА', color: 'orange', dateOnly: true },
+  NKR: { label: 'НКР', color: 'orange', dateOnly: true },
+  INTERFAX: { label: 'Интерфакс', color: 'gray' },
+  RBC: { label: 'РБК', color: 'gray' },
+  KOMMERSANT: { label: 'Коммерсантъ', color: 'gray' },
+  VEDOMOSTI: { label: 'Ведомости', color: 'gray' },
+  FINAM: { label: 'Финам', color: 'gray' },
+  FRANK_MEDIA: { label: 'Frank Media', color: 'gray' },
+  SMART_LAB: { label: 'Smart-Lab', color: 'gray' },
 };
 
 interface Props {
@@ -58,7 +68,7 @@ function NewsEntry({ item }: { item: NewsItem }) {
           {source.label}
         </Badge>
         <Text size="xs" c="dimmed">
-          {formatDateTime(item.publishedAt)}
+          {source.dateOnly ? formatMoscowDate(item.publishedAt) : formatDateTime(item.publishedAt)}
         </Text>
       </Group>
       {item.url ? (
@@ -101,4 +111,18 @@ function NewsEntry({ item }: { item: NewsItem }) {
       )}
     </Stack>
   );
+}
+
+/** День релиза по Москве: в другом часовом поясе начало московского дня может оказаться предыдущим днём */
+function formatMoscowDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return formatDate(value);
+  }
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'Europe/Moscow',
+  }).format(date);
 }

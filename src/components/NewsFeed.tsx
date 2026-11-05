@@ -6,15 +6,22 @@ import { ErrorState } from './ErrorState';
 import { MarketOverviewCard } from './MarketOverviewCard';
 import { NewsList } from './NewsList';
 
-type SourceFilter = 'all' | 'cbr' | 'moex';
+type SourceFilter = 'all' | 'cbr' | 'moex' | 'ratings' | 'media';
 
+// подписи короткие: пять вариантов в узкой колонке
 const FILTERS: { value: SourceFilter; label: string; sources: NewsSource[] }[] = [
   { value: 'all', label: 'Все', sources: [] },
-  { value: 'cbr', label: 'Банк России', sources: ['CBR_PRESS', 'CBR_EVENT'] },
-  { value: 'moex', label: 'Мосбиржа', sources: ['MOEX'] },
+  { value: 'cbr', label: 'ЦБ', sources: ['CBR_PRESS', 'CBR_EVENT'] },
+  { value: 'moex', label: 'Биржа', sources: ['MOEX'] },
+  { value: 'ratings', label: 'Рейтинги', sources: ['ACRA', 'NKR'] },
+  {
+    value: 'media',
+    label: 'СМИ',
+    sources: ['INTERFAX', 'RBC', 'KOMMERSANT', 'VEDOMOSTI', 'FINAM', 'FRANK_MEDIA', 'SMART_LAB'],
+  },
 ];
 
-/** Лента финансовых новостей на главной: ставка и курсы ЦБ сверху, ниже новости ЦБ и Мосбиржи */
+/** Лента финансовых новостей на главной: ставка и курсы ЦБ сверху, ниже новости ЦБ, Мосбиржи, рейтинговых агентств и СМИ */
 export function NewsFeed() {
   const [filter, setFilter] = useState<SourceFilter>('all');
   const sources = FILTERS.find((item) => item.value === filter)!.sources;

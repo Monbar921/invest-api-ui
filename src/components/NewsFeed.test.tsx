@@ -89,9 +89,33 @@ describe('NewsFeed', () => {
     // страниц больше нет - кнопка пропадает
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Показать ещё' })).not.toBeInTheDocument());
 
-    await userEvent.click(screen.getByRole('radio', { name: 'Мосбиржа' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Биржа' }));
     expect(await screen.findByText('Только биржа')).toBeInTheDocument();
     expect(calls).toContain('/api/bonds/news?page=0&size=20&source=MOEX');
+  });
+
+  it('рейтинги - одним фильтром, у релиза агентства только дата', async () => {
+    const calls = mockFetchByUrl([
+      [
+        /source=ACRA&source=NKR/,
+        page([
+          news(5, {
+            source: 'ACRA',
+            title: 'АКРА ПОДТВЕРДИЛО КРЕДИТНЫЙ РЕЙТИНГ',
+            // начало 05.11 по Москве
+            publishedAt: '2026-11-04T21:00:00Z',
+          }),
+        ]),
+      ],
+      [/\/news\?/, page([news(1)])],
+    ]);
+
+    renderRoute(<NewsFeed />, { path: '/bonds', url: '/bonds' });
+
+    await userEvent.click(await screen.findByRole('radio', { name: 'Рейтинги' }));
+    expect(await screen.findByText('АКРА ПОДТВЕРДИЛО КРЕДИТНЫЙ РЕЙТИНГ')).toBeInTheDocument();
+    expect(screen.getByText('05.11.2026')).toBeInTheDocument();
+    expect(calls).toContain('/api/bonds/news?page=0&size=20&source=ACRA&source=NKR');
   });
 
   it('без ответа ЦБ показывает только новости', async () => {

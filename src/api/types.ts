@@ -178,8 +178,23 @@ export interface Candle {
 /** Выборка облигаций: все, рублёвые или в иностранной валюте */
 export type BondScope = 'all' | 'local' | 'foreign';
 
-/** Источник новости: пресс-релизы и «События и комментарии» Банка России, новости Мосбиржи */
-export type NewsSource = 'CBR_PRESS' | 'CBR_EVENT' | 'MOEX';
+/**
+ * Источник новости: Банк России (пресс-релизы, «События и комментарии»), Мосбиржа, рейтинговые агентства АКРА и НКР
+ * (у их релизов только дата), СМИ
+ */
+export type NewsSource =
+  | 'CBR_PRESS'
+  | 'CBR_EVENT'
+  | 'MOEX'
+  | 'ACRA'
+  | 'NKR'
+  | 'INTERFAX'
+  | 'RBC'
+  | 'KOMMERSANT'
+  | 'VEDOMOSTI'
+  | 'FINAM'
+  | 'FRANK_MEDIA'
+  | 'SMART_LAB';
 
 /** Облигация из системы, упомянутая в новости */
 export interface NewsBond {
