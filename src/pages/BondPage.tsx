@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { ApiError } from '../api/client';
 import { useBond } from '../api/queries';
 import type { Bond, Coupon } from '../api/types';
+import { BondEventsAndNews } from '../components/BondEventsAndNews';
 import { BondPriceChart } from '../components/BondPriceChart';
 import { CouponSchedule } from '../components/CouponSchedule';
 import { ErrorState } from '../components/ErrorState';
@@ -101,6 +102,8 @@ function BondDetails({ bond }: { bond: Bond }) {
       </SimpleGrid>
 
       <BondPriceChart ticker={bond.ticker} />
+
+      <BondEventsAndNews ticker={bond.ticker} />
 
       <CouponSchedule coupon={bond.coupon} />
     </Stack>

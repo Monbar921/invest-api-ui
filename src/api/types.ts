@@ -177,3 +177,56 @@ export interface Candle {
 
 /** Выборка облигаций: все, рублёвые или в иностранной валюте */
 export type BondScope = 'all' | 'local' | 'foreign';
+
+/** Источник новости: пресс-релизы и «События и комментарии» Банка России, новости Мосбиржи */
+export type NewsSource = 'CBR_PRESS' | 'CBR_EVENT' | 'MOEX';
+
+/** Облигация из системы, упомянутая в новости */
+export interface NewsBond {
+  ticker: string;
+  name: string | null;
+}
+
+/** Внешняя новость: заголовок, короткий анонс (есть не у всех источников) и ссылка на источник */
+export interface NewsItem {
+  id: number;
+  source: NewsSource;
+  title: string;
+  summary: string | null;
+  url: string | null;
+  publishedAt: string;
+  /** Облигации из системы, упомянутые по ISIN */
+  bonds: NewsBond[] | null;
+  /** Эмитенты, к которым относится новость */
+  issuers: string[] | null;
+}
+
+export interface CurrencyRate {
+  code: string;
+  /** Рублей за единицу валюты по курсу ЦБ */
+  rate: number;
+  /** Изменение к прошлому курсу, рубли */
+  change: number;
+}
+
+/** Ключевая ставка и курсы ЦБ; поля ставки null, если ЦБ не ответил */
+export interface MarketOverview {
+  keyRate: number | null;
+  /** YYYY-MM-DD - с какого дня действует ставка */
+  keyRateSince: string | null;
+  previousKeyRate: number | null;
+  currencies: CurrencyRate[] | null;
+}
+
+export type BondEventType = 'COUPON' | 'AMORTIZATION' | 'OFFER' | 'MATURITY';
+
+/** Событие облигации из её графика выплат и дат - не внешняя новость */
+export interface BondEvent {
+  type: BondEventType;
+  /** YYYY-MM-DD */
+  date: string;
+  /** Выплата на одну облигацию; null - размер не объявлен или выплаты нет (оферта) */
+  amount: Money | null;
+  /** Прошлый размер купона, если он изменился */
+  previousAmount: Money | null;
+}

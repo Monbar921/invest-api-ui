@@ -5,6 +5,13 @@ const EMPTY = '—';
 
 const numberFormat = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 2 });
 const dateFormat = new Intl.DateTimeFormat(LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric' });
+const dateTimeFormat = new Intl.DateTimeFormat(LOCALE, {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+});
 
 export function formatNumber(value: number | null | undefined): string {
   return value == null ? EMPTY : numberFormat.format(value);
@@ -55,6 +62,28 @@ export function formatDate(value: string | null | undefined): string {
 
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? EMPTY : dateFormat.format(date);
+}
+
+/** «05.11.2026, 16:05» в часовом поясе браузера */
+export function formatDateTime(value: string | null | undefined): string {
+  if (!value) {
+    return EMPTY;
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? EMPTY : dateTimeFormat.format(date);
+}
+
+/** Изменение со знаком: «+0,3», «−0,25»; ноль - без знака */
+export function formatChange(value: number | null | undefined): string {
+  if (value == null) {
+    return EMPTY;
+  }
+  const formatted = numberFormat.format(Math.abs(value));
+  if (value > 0) {
+    return `+${formatted}`;
+  }
+  return value < 0 ? `−${formatted}` : formatted;
 }
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;

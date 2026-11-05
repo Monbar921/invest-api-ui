@@ -1,11 +1,15 @@
 import { request } from './client';
 import type {
   Bond,
+  BondEvent,
   BondParameters,
   BondScope,
   BondSearchItem,
   Candle,
   CandleInterval,
+  MarketOverview,
+  NewsItem,
+  NewsSource,
   Page,
   ProfitCalculation,
   ProfitCalculationRequest,
@@ -44,4 +48,24 @@ export function fetchCandles(ticker: string, interval: CandleInterval, from?: st
     params.set('from', from);
   }
   return request<Candle[]>(`${BONDS_PATH}/${encodeURIComponent(ticker)}/candles?${params}`);
+}
+
+/** Общая лента новостей; sources пусто - все источники */
+export function fetchNews(sources: NewsSource[], page: number, size: number): Promise<Page<NewsItem>> {
+  const params = new URLSearchParams({ page: String(page), size: String(size) });
+  sources.forEach((source) => params.append('source', source));
+  return request<Page<NewsItem>>(`${BONDS_PATH}/news?${params}`);
+}
+
+export function fetchBondNews(ticker: string, page: number, size: number): Promise<Page<NewsItem>> {
+  const params = new URLSearchParams({ page: String(page), size: String(size) });
+  return request<Page<NewsItem>>(`${BONDS_PATH}/${encodeURIComponent(ticker)}/news?${params}`);
+}
+
+export function fetchMarketOverview(): Promise<MarketOverview> {
+  return request<MarketOverview>(`${BONDS_PATH}/market-overview`);
+}
+
+export function fetchBondEvents(ticker: string): Promise<BondEvent[]> {
+  return request<BondEvent[]>(`${BONDS_PATH}/${encodeURIComponent(ticker)}/events`);
 }

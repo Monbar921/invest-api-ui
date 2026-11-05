@@ -1,4 +1,4 @@
-import { Box, Group, Stack, Tabs, Text, Title } from '@mantine/core';
+import { Box, Grid, Group, Stack, Tabs, Text, Title } from '@mantine/core';
 import { useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useBondsPage } from '../api/queries';
@@ -7,6 +7,7 @@ import { BondFilters } from '../components/BondFilters';
 import { BondSearch } from '../components/BondSearch';
 import { BondsTable } from '../components/BondsTable';
 import { ErrorState } from '../components/ErrorState';
+import { NewsFeed } from '../components/NewsFeed';
 import { parseBondSearch, toBondParameters, toSearchParams, type BondSearchState } from '../lib/bondSearchParams';
 import { formatNumber } from '../lib/format';
 
@@ -42,6 +43,34 @@ export function BondsPage() {
     });
 
   return (
+    // лента слева; на узком экране она уходит под таблицу - облигации остаются первыми
+    <Grid gap="md">
+      <Grid.Col span={{ base: 12, lg: 3 }} order={{ base: 2, lg: 1 }}>
+        <NewsFeed />
+      </Grid.Col>
+      <Grid.Col span={{ base: 12, lg: 9 }} order={{ base: 1, lg: 2 }}>
+        <BondsList
+          state={state}
+          query={query}
+          update={update}
+          reset={reset}
+          onSelect={(ticker) => navigate(`/bonds/${encodeURIComponent(ticker)}`)}
+        />
+      </Grid.Col>
+    </Grid>
+  );
+}
+
+interface BondsListProps {
+  state: BondSearchState;
+  query: ReturnType<typeof useBondsPage>;
+  update: (patch: Partial<BondSearchState>, options?: { resetPage?: boolean }) => void;
+  reset: () => void;
+  onSelect: (ticker: string) => void;
+}
+
+function BondsList({ state, query, update, reset, onSelect }: BondsListProps) {
+  return (
     <Stack gap="md">
       <Group justify="space-between" align="flex-end">
         <Title order={2}>Облигации</Title>
@@ -54,11 +83,7 @@ export function BondsPage() {
 
       {/* поиск по всем облигациям, а не по текущей выборке: выбранная открывается в карточке */}
       <Box maw={560}>
-        <BondSearch
-          label="Поиск облигации"
-          value={null}
-          onChange={(ticker) => ticker && navigate(`/bonds/${encodeURIComponent(ticker)}`)}
-        />
+        <BondSearch label="Поиск облигации" value={null} onChange={(ticker) => ticker && onSelect(ticker)} />
       </Box>
 
       <Tabs value={state.scope} onChange={(scope) => scope && update({ scope: scope as BondScope })}>
