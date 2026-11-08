@@ -15,7 +15,7 @@ import { IconTrash } from '@tabler/icons-react';
 import { useState } from 'react';
 import { MAX_ALERT_DAYS } from '../api/alerts';
 import { useAlertMutations, useAlerts, useBond, useTelegramStatus } from '../api/queries';
-import type { Alert, AlertDirection, AlertType, PriceAlertType } from '../api/types';
+import type { Alert, AlertDirection, AlertType, Bond, PriceAlertType } from '../api/types';
 import { ALERT_TYPES, describePriceAlert, EVENT_ALERT_TYPES, isDateAlert, isPriceAlert, PRICE_ALERT_TYPES } from '../lib/alerts';
 import { formatPercent, plural } from '../lib/format';
 import { DebouncedNumberInput } from './DebouncedNumberInput';
@@ -26,6 +26,7 @@ import { DebouncedNumberInput } from './DebouncedNumberInput';
  */
 export function BondAlertsPanel({ ticker }: { ticker: string }) {
   const alerts = useAlerts();
+  const bond = useBond(ticker);
   const { create, update } = useAlertMutations();
   const error = create.error ?? update.error;
 
@@ -47,6 +48,13 @@ export function BondAlertsPanel({ ticker }: { ticker: string }) {
 
   const bondAlerts = alerts.data.filter((alert) => alert.ticker === ticker);
   const byType = new Map(bondAlerts.filter((alert) => isDateAlert(alert.type)).map((alert) => [alert.type, alert]));
+  // «Объявлен купон» - только для купона, который объявляют по одному (флоатер); пока облигация грузится - показываем
+  const eventTypes = EVENT_ALERT_TYPES.filter(
+    (item) =>
+      item.type !== 'FLOATER_COUPON' ||
+      bond.data?.coupon?.isFixed !== true ||
+      bondAlerts.some((alert) => alert.type === item.type),
+  );
 
   return (
     <Stack gap="sm">
@@ -79,11 +87,10 @@ export function BondAlertsPanel({ ticker }: { ticker: string }) {
         </Text>
       )}
       <Divider />
-      <Divider />
       <Text size="sm" fw={600}>
         События и новости
       </Text>
-      {EVENT_ALERT_TYPES.map((item) => (
+      {eventTypes.map((item) => (
         <EventSwitch
           key={item.type}
           label={item.label}
@@ -93,52 +100,75 @@ export function BondAlertsPanel({ ticker }: { ticker: string }) {
         />
       ))}
       <Divider />
-      <PriceAlerts ticker={ticker} alerts={bondAlerts.filter((alert) => isPriceAlert(alert.type))} />
+      <PriceAlerts ticker={ticker} bond={bond.data} alerts={bondAlerts.filter((alert) => isPriceAlert(alert.type))} />
     </Stack>
   );
+}
+
+/** Текущее значение, с которым сравнивается уровень: цена в % от номинала или доходность */
+function currentValue(type: PriceAlertType, bond: Bond | undefined): number | null {
+  switch (type) {
+    case 'PRICE_LEVEL':
+      return bond?.price?.percentagePrice ?? null;
+    case 'YTM_LEVEL':
+      return bond?.coupon?.yieldToMaturity ?? null;
+    case 'YTO_LEVEL':
+      return bond?.coupon?.yieldToOffer ?? null;
+    default:
+      return null;
+  }
 }
 
 /**
  * Пороги по цене и доходности: их может быть несколько на облигацию (например, «выше 101%» и «ниже 95%»).
  * Сработавший уровень снова взводится, когда значение вернётся за порог; изменение от текущей цены - разовое.
  */
-function PriceAlerts({ ticker, alerts }: { ticker: string; alerts: Alert[] }) {
-  const bond = useBond(ticker);
+function PriceAlerts({ ticker, bond, alerts }: { ticker: string; bond: Bond | undefined; alerts: Alert[] }) {
   const { create, update, remove } = useAlertMutations();
+  // доходность к оферте - только если оферта есть; пока облигация грузится - показываем все
+  const types = PRICE_ALERT_TYPES.filter(
+    (item) => item.type !== 'YTO_LEVEL' || bond == null || bond.offerDate != null || bond.coupon?.yieldToOffer != null,
+  );
   const [type, setType] = useState<PriceAlertType>('PRICE_LEVEL');
-  const config = PRICE_ALERT_TYPES.find((item) => item.type === type) ?? PRICE_ALERT_TYPES[0]!;
+  const config = types.find((item) => item.type === type) ?? types[0]!;
   const [direction, setDirection] = useState<AlertDirection>(config.defaultDirection);
   const [threshold, setThreshold] = useState<number | string>(config.defaultThreshold);
   const error = create.error ?? update.error ?? remove.error;
 
   const changeType = (next: PriceAlertType) => {
-    const nextConfig = PRICE_ALERT_TYPES.find((item) => item.type === next) ?? PRICE_ALERT_TYPES[0]!;
+    const nextConfig = types.find((item) => item.type === next) ?? types[0]!;
     setType(next);
     setDirection(nextConfig.defaultDirection);
     setThreshold(nextConfig.defaultThreshold);
   };
   const value = typeof threshold === 'number' ? threshold : Number.parseFloat(threshold.replace(',', '.'));
   const valid = Number.isFinite(value) && value >= config.min && value <= config.max;
+  const current = currentValue(config.type, bond);
+  // уровень уже пересечён - правило сработает сразу после добавления
+  const alreadyMet =
+    valid && current != null && (direction === 'UP' ? current >= value : direction === 'DOWN' && current <= value);
+  // порядок не прыгает после включения и выключения: как добавлены
+  const sorted = [...alerts].sort((a, b) => a.id - b.id);
 
   return (
     <Stack gap="xs">
       <Text size="sm" fw={600}>
         Цена и доходность
       </Text>
-      {bond.data && (
+      {bond && (
         <Text size="xs" c="dimmed">
-          Сейчас: цена {formatPercent(bond.data.price?.percentagePrice)} номинала, к погашению{' '}
-          {formatPercent(bond.data.coupon?.yieldToMaturity)}
-          {bond.data.coupon?.yieldToOffer != null && `, к оферте ${formatPercent(bond.data.coupon.yieldToOffer)}`}
+          Сейчас: цена {formatPercent(bond.price?.percentagePrice)} номинала, к погашению{' '}
+          {formatPercent(bond.coupon?.yieldToMaturity)}
+          {bond.coupon?.yieldToOffer != null && `, к оферте ${formatPercent(bond.coupon.yieldToOffer)}`}
         </Text>
       )}
-      {alerts.map((alert) => (
+      {sorted.map((alert) => (
         <Group key={alert.id} justify="space-between" wrap="nowrap" gap="xs">
           <Switch
             checked={alert.enabled}
             onChange={(event) => update.mutate({ id: alert.id, enabled: event.currentTarget.checked })}
             label={describePriceAlert(alert)}
-            description={alert.state === 'TRIGGERED' ? 'сработало, ждёт возврата за порог' : undefined}
+            description={alert.enabled && alert.state === 'TRIGGERED' ? 'сработало, ждёт возврата за порог' : undefined}
             aria-label={describePriceAlert(alert)}
           />
           <ActionIcon
@@ -151,18 +181,18 @@ function PriceAlerts({ ticker, alerts }: { ticker: string; alerts: Alert[] }) {
           </ActionIcon>
         </Group>
       ))}
-      <Group gap="xs" align="flex-end" wrap="wrap">
+      <Group gap="xs" align="flex-start" wrap="wrap">
         <Select
           label="Уведомить, когда"
-          data={PRICE_ALERT_TYPES.map((item) => ({ value: item.type, label: item.label }))}
-          value={type}
+          data={types.map((item) => ({ value: item.type, label: item.label }))}
+          value={config.type}
           onChange={(next) => next && changeType(next as PriceAlertType)}
           allowDeselect={false}
           size="xs"
           w={210}
         />
         <Select
-          aria-label="Направление"
+          label="Направление"
           data={config.directions}
           value={direction}
           onChange={(next) => next && setDirection(next as AlertDirection)}
@@ -171,31 +201,30 @@ function PriceAlerts({ ticker, alerts }: { ticker: string; alerts: Alert[] }) {
           w={150}
         />
         <NumberInput
-          aria-label="Порог"
+          label="Порог, %"
           value={threshold}
           onChange={setThreshold}
-          min={config.min}
-          max={config.max}
+          // без подрезки: 500 не должно молча превращаться в 300 - показываем ошибку
+          clampBehavior="none"
           decimalSeparator=","
-          rightSection={
-            <Text size="xs" c="dimmed" pr={4}>
-              %
-            </Text>
-          }
+          error={valid ? undefined : `от ${config.min} до ${config.max}`}
           size="xs"
-          w={90}
+          w={110}
         />
         <Button
           size="xs"
+          mt={22}
           disabled={!valid}
           loading={create.isPending}
-          onClick={() => create.mutate({ ticker, type, direction, threshold: value })}
+          onClick={() => valid && create.mutate({ ticker, type: config.type, direction, threshold: value })}
         >
           Добавить
         </Button>
       </Group>
-      <Text size="xs" c="dimmed">
-        {config.unit === '%' ? 'в процентах от цены' : config.unit}, от {config.min} до {config.max}
+      <Text size="xs" c={alreadyMet ? 'orange' : 'dimmed'}>
+        {alreadyMet
+          ? 'Условие уже выполнено - уведомление придёт сразу после добавления.'
+          : `${config.unit === '%' ? 'в процентах от цены' : config.unit}, от ${config.min} до ${config.max}`}
       </Text>
       {error && (
         <Text size="xs" c="red">

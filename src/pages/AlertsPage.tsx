@@ -1,11 +1,26 @@
-import { ActionIcon, Anchor, Badge, Button, Card, Group, Loader, Stack, Text, Title, Tooltip } from '@mantine/core';
-import { IconTrash } from '@tabler/icons-react';
+import {
+  ActionIcon,
+  Anchor,
+  Badge,
+  Button,
+  Card,
+  Group,
+  Loader,
+  Modal,
+  Popover,
+  Stack,
+  Text,
+  Title,
+  Tooltip,
+} from '@mantine/core';
+import { IconSettings, IconTrash } from '@tabler/icons-react';
+import { useState } from 'react';
 import { Link } from 'react-router';
 import { useAlertMutations, useAlerts, useNotifications } from '../api/queries';
 import type { Alert } from '../api/types';
 import { BondAlertsPanel, EventSwitch, TelegramRequiredHint } from '../components/BondAlertsPanel';
 import { ErrorState } from '../components/ErrorState';
-import { KEY_RATE_ALERT, NOTIFICATION_STATUSES } from '../lib/alerts';
+import { describeAlert, KEY_RATE_ALERT, NOTIFICATION_STATUSES } from '../lib/alerts';
 import { formatDateTime } from '../lib/format';
 
 /** «Уведомления»: правила по облигациям и история отправленного */
@@ -72,14 +87,21 @@ function AlertsByBond() {
   );
 }
 
+/**
+ * Облигация с правилами - кратко, текстом; настройка - в том же окне, что у колокольчика. Удаление всех правил
+ * облигации - только после подтверждения: кнопка рядом с соседними карточками, промахнуться легко.
+ */
 function BondCard({ ticker, alerts }: { ticker: string; alerts: Alert[] }) {
   const { remove } = useAlertMutations();
+  const [editing, setEditing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const name = alerts[0]?.bondName;
+  const sorted = [...alerts].sort((a, b) => a.id - b.id);
 
   return (
     <Card withBorder padding="md">
-      <Stack gap="sm">
-        <Group justify="space-between" wrap="nowrap">
+      <Stack gap="xs">
+        <Group justify="space-between" wrap="nowrap" align="flex-start">
           <div>
             {name ? (
               <Anchor component={Link} to={`/bonds/${encodeURIComponent(ticker)}`} fw={500}>
@@ -92,20 +114,59 @@ function BondCard({ ticker, alerts }: { ticker: string; alerts: Alert[] }) {
               {name ? ticker : 'облигации больше нет в списке торгуемых'}
             </Text>
           </div>
-          <Tooltip label="Удалить уведомления по облигации">
-            <ActionIcon
-              variant="subtle"
-              color="gray"
-              aria-label={`Удалить уведомления: ${ticker}`}
-              loading={remove.isPending}
-              onClick={() => alerts.forEach((alert) => remove.mutate(alert.id))}
-            >
-              <IconTrash size={16} />
-            </ActionIcon>
-          </Tooltip>
+          <Group gap={4} wrap="nowrap">
+            <Button size="xs" variant="light" leftSection={<IconSettings size={14} />} onClick={() => setEditing(true)}>
+              Настроить
+            </Button>
+            <Popover opened={confirming} onChange={setConfirming} position="bottom-end" withArrow shadow="md">
+              <Popover.Target>
+                <Tooltip label="Удалить уведомления по облигации" disabled={confirming}>
+                  <ActionIcon
+                    variant="subtle"
+                    color="gray"
+                    aria-label={`Удалить уведомления: ${ticker}`}
+                    onClick={() => setConfirming((value) => !value)}
+                  >
+                    <IconTrash size={16} />
+                  </ActionIcon>
+                </Tooltip>
+              </Popover.Target>
+              <Popover.Dropdown>
+                <Stack gap="xs">
+                  <Text size="sm">Удалить все уведомления по {name ?? ticker}?</Text>
+                  <Group gap="xs" justify="flex-end">
+                    <Button size="xs" variant="default" onClick={() => setConfirming(false)}>
+                      Отмена
+                    </Button>
+                    <Button
+                      size="xs"
+                      color="red"
+                      loading={remove.isPending}
+                      onClick={() => {
+                        alerts.forEach((alert) => remove.mutate(alert.id));
+                        setConfirming(false);
+                      }}
+                    >
+                      Удалить
+                    </Button>
+                  </Group>
+                </Stack>
+              </Popover.Dropdown>
+            </Popover>
+          </Group>
         </Group>
-        <BondAlertsPanel ticker={ticker} />
+        <Group gap={6}>
+          {sorted.map((alert) => (
+            <Badge key={alert.id} variant={alert.enabled ? 'light' : 'outline'} color={alert.enabled ? undefined : 'gray'}>
+              {describeAlert(alert)}
+              {alert.enabled ? '' : ' (выкл.)'}
+            </Badge>
+          ))}
+        </Group>
       </Stack>
+      <Modal opened={editing} onClose={() => setEditing(false)} title={`Уведомления: ${name ?? ticker}`}>
+        {editing && <BondAlertsPanel ticker={ticker} />}
+      </Modal>
     </Card>
   );
 }

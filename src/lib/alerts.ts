@@ -151,6 +151,17 @@ export function describePriceAlert(alert: Alert): string {
   }
 }
 
+/** Правило одной строкой: «Купон за 3 дн.», «Цена ≤ 95% номинала», «Новости» */
+export function describeAlert(alert: Alert): string {
+  if (isDateAlert(alert.type)) {
+    return `${alertTypeLabel(alert.type)} за ${alert.days ?? ''} дн.`;
+  }
+  if (isPriceAlert(alert.type)) {
+    return describePriceAlert(alert);
+  }
+  return alertTypeLabel(alert.type);
+}
+
 export const NOTIFICATION_STATUSES: Record<NotificationStatus, { label: string; color: string }> = {
   PENDING: { label: 'Ждёт отправки', color: 'yellow' },
   SENT: { label: 'Отправлено', color: 'green' },

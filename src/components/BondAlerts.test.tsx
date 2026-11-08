@@ -51,7 +51,12 @@ const json = (body: unknown, status = 200) =>
   new Response(status === 204 ? null : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
 /** fetch по адресу и методу; правила берутся из alerts - мутации их меняют, как сервер */
-function mockAlertsApi({ alerts = [] as Alert[], telegramStatus = telegram, history = [] as NotificationItem[] } = {}) {
+function mockAlertsApi({
+  alerts = [] as Alert[],
+  telegramStatus = telegram,
+  history = [] as NotificationItem[],
+  bond = null as unknown,
+} = {}) {
   const calls: { method: string; url: string; body?: unknown }[] = [];
   let current = [...alerts];
 
@@ -59,6 +64,9 @@ function mockAlertsApi({ alerts = [] as Alert[], telegramStatus = telegram, hist
     const method = init?.method ?? 'GET';
     const body = init?.body ? JSON.parse(String(init.body)) : undefined;
     calls.push({ method, url, body });
+    if (bond != null && url.endsWith(`/api/bonds/${TICKER}`)) {
+      return json(bond);
+    }
     if (url.endsWith('/api/alerts/telegram')) {
       return json(telegramStatus);
     }
@@ -244,8 +252,9 @@ describe('AlertsPage', () => {
     renderRoute(<AlertsPage />, { path: '/alerts', url: '/alerts' });
 
     expect(await screen.findByRole('link', { name: 'Авто Финанс Банк БО-001Р-18' })).toHaveAttribute('href', `/bonds/${TICKER}`);
-    expect(screen.getByRole('switch', { name: 'Купон' })).toBeChecked();
-    expect(screen.getByRole('switch', { name: 'Погашение' })).not.toBeChecked();
+    // кратко, текстом; выключенное - с пометкой
+    expect(screen.getByText('Купон за 3 дн.')).toBeInTheDocument();
+    expect(screen.getByText('Погашение за 30 дн. (выкл.)')).toBeInTheDocument();
     expect(await screen.findByText(/Купон через 2 дня/)).toBeInTheDocument();
     expect(screen.getByText('Отправлено')).toBeInTheDocument();
     expect(screen.getByText('Не отправлено')).toBeInTheDocument();
@@ -257,6 +266,9 @@ describe('AlertsPage', () => {
     renderRoute(<AlertsPage />, { path: '/alerts', url: '/alerts' });
 
     await userEvent.click(await screen.findByRole('button', { name: `Удалить уведомления: ${TICKER}` }));
+    // без подтверждения ничего не удаляется
+    expect(calls.some((call) => call.method === 'DELETE')).toBe(false);
+    await userEvent.click(await screen.findByRole('button', { name: 'Удалить' }));
 
     await waitFor(() =>
       expect(calls.filter((call) => call.method === 'DELETE').map((call) => call.url)).toEqual([
@@ -265,5 +277,59 @@ describe('AlertsPage', () => {
       ]),
     );
     expect(await screen.findByText(/Уведомлений пока нет/)).toBeInTheDocument();
+  });
+
+  it('настраивает облигацию в окне', async () => {
+    mockAlertsApi({ alerts: [alert()] });
+    renderRoute(<AlertsPage />, { path: '/alerts', url: '/alerts' });
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Настроить' }));
+
+    expect(await screen.findByRole('switch', { name: 'Купон' })).toBeChecked();
+  });
+});
+
+describe('BondAlertsButton: проверки формы порога', () => {
+  it('не создаёт правило с порогом вне пределов и показывает ошибку', async () => {
+    const calls = mockAlertsApi();
+    renderRoute(<BondAlertsButton ticker={TICKER} name={null} />, { path: '/bonds', url: '/bonds' });
+
+    await userEvent.click(await screen.findByRole('button', { name: `Уведомления: ${TICKER}` }));
+    const threshold = await screen.findByRole('textbox', { name: 'Порог, %' });
+    await userEvent.clear(threshold);
+    await userEvent.type(threshold, '500');
+    await userEvent.click(screen.getByRole('button', { name: 'Добавить' }));
+
+    // 500 не подрезается до 300: ошибка у поля, запроса нет
+    expect(threshold).toHaveValue('500');
+    expect(screen.getByText('от 1 до 300')).toBeInTheDocument();
+    expect(calls.some((call) => call.method === 'POST')).toBe(false);
+  });
+});
+
+describe('BondAlertsButton: подсказки по облигации', () => {
+  const fixedBond = {
+    ticker: TICKER,
+    name: 'Авто Финанс',
+    price: { percentagePrice: 51.71 },
+    coupon: { isFixed: true, yieldToMaturity: 16.18, yieldToOffer: null },
+    offerDate: null,
+  };
+
+  it('скрывает неприменимые правила и предупреждает о сработавшем условии', async () => {
+    mockAlertsApi({ bond: fixedBond });
+    renderRoute(<BondAlertsButton ticker={TICKER} name={null} />, { path: '/bonds', url: '/bonds' });
+
+    await userEvent.click(await screen.findByRole('button', { name: `Уведомления: ${TICKER}` }));
+
+    // постоянный купон - «Объявлен купон» не нужен
+    await waitFor(() => expect(screen.queryByRole('switch', { name: 'Объявлен купон' })).not.toBeInTheDocument());
+    expect(screen.getByRole('switch', { name: 'Новости' })).toBeInTheDocument();
+    // по умолчанию «опустится до 95» при цене 51,71% - сработает сразу
+    expect(await screen.findByText(/Условие уже выполнено/)).toBeInTheDocument();
+    // без оферты нет «Доходность к оферте»
+    await userEvent.click(screen.getAllByLabelText('Уведомить, когда')[0]!);
+    expect(screen.queryByRole('option', { name: 'Доходность к оферте', hidden: true })).not.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Доходность к погашению', hidden: true })).toBeInTheDocument();
   });
 });
