@@ -25,6 +25,7 @@ import { MAX_BUY_PRICE, MAX_POSITION_QUANTITY } from '../api/portfolio';
 import { bondKeys, usePortfolio, usePortfolioMutations } from '../api/queries';
 import type { PortfolioPosition, PortfolioTotal } from '../api/types';
 import { BondSearch } from '../components/BondSearch';
+import { BrokerSelect } from '../components/BrokerSelect';
 import { ErrorState } from '../components/ErrorState';
 import { isIsoDate, todayIso } from '../lib/dates';
 import { formatChange, formatDate, formatMoney, formatNumber, formatPercent } from '../lib/format';
@@ -137,11 +138,12 @@ function PositionsTable({
 }) {
   return (
     <Card withBorder padding={0}>
-      <Table.ScrollContainer minWidth={900}>
+      <Table.ScrollContainer minWidth={1000}>
         <Table striped highlightOnHover verticalSpacing="sm">
           <Table.Thead>
             <Table.Tr>
               <Table.Th>Облигация</Table.Th>
+              <Table.Th>Брокер</Table.Th>
               <Table.Th>Дата покупки</Table.Th>
               <Table.Th ta="right">Кол-во</Table.Th>
               <Table.Th ta="right">Цена покупки</Table.Th>
@@ -183,6 +185,13 @@ function PositionRow({ position, onEdit }: { position: PortfolioPosition; onEdit
         <Text size="xs" c="dimmed">
           {position.bondName ? position.ticker : 'облигации больше нет в списке торгуемых'}
         </Text>
+      </Table.Td>
+      <Table.Td>
+        {position.broker ?? (
+          <Text size="sm" c="dimmed">
+            —
+          </Text>
+        )}
       </Table.Td>
       <Table.Td>{formatDate(position.buyDate)}</Table.Td>
       <Table.Td ta="right">{formatNumber(position.quantity)}</Table.Td>
@@ -264,6 +273,7 @@ function PositionForm({ position, onDone }: { position?: PortfolioPosition; onDo
   // пользователь ввёл свою цену - текущая цена облигации её не затирает, даже если пришла позже
   const priceTouched = useRef(position != null);
   const [buyDate, setBuyDate] = useState(position?.buyDate ?? today);
+  const [broker, setBroker] = useState<string | null>(position?.broker ?? null);
   const [submitted, setSubmitted] = useState(false);
 
   const errors = {
@@ -301,7 +311,8 @@ function PositionForm({ position, onDone }: { position?: PortfolioPosition; onDo
     if (!valid || quantity == null || buyPrice == null) {
       return;
     }
-    const request = { quantity, buyPrice, buyDate };
+    // пустая строка - без брокера (в том числе снять брокера у существующей покупки)
+    const request = { quantity, buyPrice, buyDate, broker: broker ?? '' };
     if (position) {
       update.mutate({ id: position.id, ...request }, { onSuccess: onDone });
     } else {
@@ -349,6 +360,7 @@ function PositionForm({ position, onDone }: { position?: PortfolioPosition; onDo
         decimalSeparator=","
         error={shown(errors.buyPrice)}
       />
+      <BrokerSelect value={broker} onChange={setBroker} />
       <TextInput
         label="Дата покупки"
         type="date"

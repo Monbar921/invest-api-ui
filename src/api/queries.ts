@@ -20,7 +20,7 @@ import {
   fetchNotifications,
   updateAlert,
 } from './alerts';
-import { createPosition, deletePosition, fetchPortfolio, updatePosition } from './portfolio';
+import { createPosition, deletePosition, fetchBrokers, fetchPortfolio, updatePosition } from './portfolio';
 import { createTelegramLink, fetchTelegramStatus, unlinkTelegram } from './telegram';
 import type {
   BondParameters,
@@ -225,14 +225,23 @@ export function useAlertMutations() {
 
 export const portfolioKeys = {
   all: ['portfolio'] as const,
+  positions: () => [...portfolioKeys.all, 'positions'] as const,
+  brokers: () => [...portfolioKeys.all, 'brokers'] as const,
 };
 
 /** Портфель с текущими ценами; цены на бэке обновляются в течение дня - перечитываем при возврате на вкладку */
 export function usePortfolio() {
-  return useQuery({ queryKey: portfolioKeys.all, queryFn: fetchPortfolio });
+  return useQuery({ queryKey: portfolioKeys.positions(), queryFn: fetchPortfolio });
 }
 
-/** Добавление, изменение и удаление покупки; после - портфель перечитывается (итоги считает бэк) */
+export function useBrokers() {
+  return useQuery({ queryKey: portfolioKeys.brokers(), queryFn: fetchBrokers });
+}
+
+/**
+ * Добавление, изменение и удаление покупки; после - портфель перечитывается (итоги считает бэк), а с ним и брокеры:
+ * покупка с новым именем брокера его создаёт
+ */
 export function usePortfolioMutations() {
   const queryClient = useQueryClient();
   const onSuccess = () => queryClient.invalidateQueries({ queryKey: portfolioKeys.all });

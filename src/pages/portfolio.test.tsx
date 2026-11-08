@@ -12,6 +12,7 @@ const position = (overrides: Partial<PortfolioPosition>): PortfolioPosition => (
   currency: 'rub',
   quantity: 10,
   buyDate: '2026-01-15',
+  broker: 'Т-Инвестиции',
   nominal: 1000,
   buyPrice: 98.5,
   currentPrice: 100.5,
@@ -30,6 +31,7 @@ const portfolio: Portfolio = {
       id: 2,
       ticker: 'SU26238RMFS4',
       bondName: 'ОФЗ 26238',
+      broker: null,
       quantity: 2,
       buyPrice: 70,
       currentPrice: 61,
@@ -71,13 +73,18 @@ function mockApi(current: Portfolio = portfolio) {
     if (method === 'DELETE') {
       return new Response(null, { status: 204 });
     }
-    const body = url.includes('/search')
-      ? [found]
-      : url.startsWith('/api/bonds/')
-        ? bond
-        : method === 'GET'
-          ? current
-          : position({ id: 3 });
+    const body = url.endsWith('/api/portfolio/brokers')
+      ? [
+          { id: 1, name: 'Альфа' },
+          { id: 2, name: 'Т-Инвестиции' },
+        ]
+      : url.includes('/search')
+        ? [found]
+        : url.startsWith('/api/bonds/')
+          ? bond
+          : method === 'GET'
+            ? current
+            : position({ id: 3 });
     return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
   });
   return calls;
@@ -159,7 +166,45 @@ describe('PortfolioPage', () => {
     await waitFor(() => expect(calls.some((call) => call.init?.method === 'PUT')).toBe(true));
     const put = calls.find((call) => call.init?.method === 'PUT')!;
     expect(put.url).toBe('/api/portfolio/positions/2');
-    expect(JSON.parse(String(put.init?.body))).toEqual({ quantity: 4, buyPrice: 70, buyDate: '2026-01-15' });
+    expect(JSON.parse(String(put.init?.body))).toEqual({ quantity: 4, buyPrice: 70, buyDate: '2026-01-15', broker: '' });
+  });
+
+  it('показывает брокера покупки', async () => {
+    mockApi();
+    renderPage();
+
+    const row = (await screen.findByText('Авто Финанс Банк БО-001Р-18')).closest('tr')!;
+    expect(within(row).getByText('Т-Инвестиции')).toBeInTheDocument();
+  });
+
+  it('выбирает брокера из уже заведённых', async () => {
+    const calls = mockApi();
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Изменить покупку: ОФЗ 26238' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByLabelText('Брокер'));
+    await userEvent.click(await screen.findByText('Альфа'));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
+
+    await waitFor(() => expect(calls.some((call) => call.init?.method === 'PUT')).toBe(true));
+    const put = calls.find((call) => call.init?.method === 'PUT')!;
+    expect(JSON.parse(String(put.init?.body))).toMatchObject({ broker: 'Альфа' });
+  });
+
+  it('добавляет нового брокера', async () => {
+    const calls = mockApi();
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Изменить покупку: ОФЗ 26238' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.type(within(dialog).getByLabelText('Брокер'), 'Финам');
+    await userEvent.click(await screen.findByText('+ Добавить «Финам»'));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
+
+    await waitFor(() => expect(calls.some((call) => call.init?.method === 'PUT')).toBe(true));
+    const put = calls.find((call) => call.init?.method === 'PUT')!;
+    expect(JSON.parse(String(put.init?.body))).toMatchObject({ broker: 'Финам' });
   });
 
   it('удаляет покупку после подтверждения', async () => {

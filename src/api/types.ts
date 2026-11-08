@@ -353,6 +353,8 @@ export interface PortfolioPosition {
   quantity: number;
   /** YYYY-MM-DD */
   buyDate: string;
+  /** Имя брокера; null - не указан */
+  broker: string | null;
   /** Текущий номинал одной облигации */
   nominal: number | null;
   /** Цена покупки, % от номинала */
@@ -393,4 +395,12 @@ export interface PortfolioPositionRequest {
   buyPrice: number;
   /** YYYY-MM-DD; не задана - сегодня */
   buyDate?: string;
+  /** Имя брокера: такого у пользователя нет - бэк его создаёт; пусто - без брокера */
+  broker?: string;
+}
+
+/** Брокер пользователя - метка покупки */
+export interface Broker {
+  id: number;
+  name: string;
 }
