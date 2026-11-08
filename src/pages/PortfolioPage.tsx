@@ -6,7 +6,6 @@ import {
   Group,
   Loader,
   Modal,
-  NumberInput,
   Popover,
   SimpleGrid,
   Stack,
@@ -27,6 +26,7 @@ import type { PortfolioGroup, PortfolioPosition, PortfolioPositionRequest, Portf
 import { BondSearch } from '../components/BondSearch';
 import { BrokerSelect } from '../components/BrokerSelect';
 import { ErrorState } from '../components/ErrorState';
+import { NumberField } from '../components/NumberField';
 import { isIsoDate, todayIso } from '../lib/dates';
 import { formatChange, formatDate, formatMoney, formatNumber, formatPercent, isRubCurrency, plural } from '../lib/format';
 
@@ -536,22 +536,22 @@ function PositionForm({ position, preset, onDone }: { position?: PortfolioPositi
           )}
         </div>
       )}
-      <NumberInput
+      <NumberField
         label="Количество, шт."
-        value={quantity ?? ''}
-        onChange={(value) => setQuantity(typeof value === 'number' ? value : undefined)}
+        value={quantity}
+        onChange={setQuantity}
         min={1}
         max={MAX_POSITION_QUANTITY}
         allowDecimal={false}
         thousandSeparator=" "
         error={shown(errors.quantity)}
       />
-      <NumberInput
+      <NumberField
         label="Цена покупки, % номинала"
-        value={buyPrice ?? ''}
+        value={buyPrice}
         onChange={(value) => {
           priceTouched.current = true;
-          setBuyPrice(typeof value === 'number' ? value : undefined);
+          setBuyPrice(value);
         }}
         min={0}
         decimalScale={4}
@@ -559,11 +559,11 @@ function PositionForm({ position, preset, onDone }: { position?: PortfolioPositi
         error={shown(errors.buyPrice)}
       />
       {foreign && (
-        <NumberInput
+        <NumberField
           label="Заплачено, ₽"
           description="Сколько рублей списал брокер за облигации, без НКД и комиссии. Пусто - по курсу ЦБ на дату покупки"
-          value={buyAmountRub ?? ''}
-          onChange={(value) => setBuyAmountRub(typeof value === 'number' ? value : undefined)}
+          value={buyAmountRub}
+          onChange={setBuyAmountRub}
           min={0}
           decimalScale={2}
           decimalSeparator=","

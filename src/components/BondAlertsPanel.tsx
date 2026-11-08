@@ -18,6 +18,7 @@ import { useAlertMutations, useAlerts, useBond, useTelegramStatus } from '../api
 import type { Alert, AlertDirection, AlertType, Bond, PriceAlertType } from '../api/types';
 import { ALERT_TYPES, describePriceAlert, EVENT_ALERT_TYPES, isDateAlert, isPriceAlert, PRICE_ALERT_TYPES } from '../lib/alerts';
 import { formatPercent, plural } from '../lib/format';
+import { DECIMAL_SEPARATORS } from '../lib/numbers';
 import { DebouncedNumberInput } from './DebouncedNumberInput';
 
 /**
@@ -207,6 +208,7 @@ function PriceAlerts({ ticker, bond, alerts }: { ticker: string; bond: Bond | un
           // без подрезки: 500 не должно молча превращаться в 300 - показываем ошибку
           clampBehavior="none"
           decimalSeparator=","
+          allowedDecimalSeparators={DECIMAL_SEPARATORS}
           error={valid ? undefined : `от ${config.min} до ${config.max}`}
           size="xs"
           w={110}

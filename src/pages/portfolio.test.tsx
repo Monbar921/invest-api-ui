@@ -275,6 +275,33 @@ describe('PortfolioPage', () => {
     expect(sent(calls, 'PUT')).toMatchObject({ url: '/api/portfolio/positions/6', body: { buyAmountRub: 76900 } });
   });
 
+  it('запятая и точка в дробной части не стирают набранное', async () => {
+    const calls = mockApi({ groups: [tmk], totals: [] });
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Показать покупки: ТМК ЗО-2027' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Изменить покупку: ТМК ЗО-2027 от 08.11.2026' }));
+    const dialog = await screen.findByRole('dialog');
+
+    const paid = within(dialog).getByLabelText(/Заплачено/);
+    await userEvent.type(paid, '79,');
+    expect(paid).toHaveValue('79,');
+    await userEvent.type(paid, '5');
+    expect(paid).toHaveValue('79,5');
+
+    // точка - тоже разделитель дробной части, в поле она становится запятой
+    const price = within(dialog).getByLabelText('Цена покупки, % номинала');
+    await userEvent.clear(price);
+    await userEvent.type(price, '95.');
+    expect(price).toHaveValue('95,');
+    await userEvent.type(price, '499');
+    expect(price).toHaveValue('95,499');
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
+    await waitFor(() => expect(calls.some((call) => call.init?.method === 'PUT')).toBe(true));
+    expect(sent(calls, 'PUT').body).toMatchObject({ buyPrice: 95.499, buyAmountRub: 79.5 });
+  });
+
   it('не отправляет покупку без облигации', async () => {
     const calls = mockApi(EMPTY);
     renderPage();

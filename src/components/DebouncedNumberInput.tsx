@@ -1,6 +1,7 @@
 import { NumberInput, type NumberInputProps } from '@mantine/core';
 import { useDebouncedCallback } from '@mantine/hooks';
 import { useState } from 'react';
+import { DECIMAL_SEPARATORS } from '../lib/numbers';
 
 interface Props extends Omit<NumberInputProps, 'value' | 'onChange'> {
   value: number | undefined;
@@ -34,6 +35,7 @@ export function DebouncedNumberInput({ value, onChange, delay = 400, ...props }:
 
   return (
     <NumberInput
+      allowedDecimalSeparators={DECIMAL_SEPARATORS}
       {...props}
       value={draft}
       onChange={(next) => {

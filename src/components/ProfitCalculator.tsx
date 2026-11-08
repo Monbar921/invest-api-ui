@@ -4,7 +4,6 @@ import {
   Card,
   Group,
   Loader,
-  NumberInput,
   SegmentedControl,
   SimpleGrid,
   Stack,
@@ -21,6 +20,7 @@ import { useMarketOverview, useProfitCalculation } from '../api/queries';
 import type { Bond, ExitType, ProfitCalculation, ProfitCalculationRequest } from '../api/types';
 import { isIsoDate, todayIso, toIsoDate } from '../lib/dates';
 import { formatDate, formatMoney, formatNumber, formatPercent, plural } from '../lib/format';
+import { NumberField } from './NumberField';
 import { ErrorState } from './ErrorState';
 
 /** Пауза после правки формы, прежде чем пересчитывать */
@@ -92,10 +92,10 @@ export function ProfitCalculator({ bond }: { bond: Bond }) {
         <Stack gap="md">
           <Title order={4}>Период и цены</Title>
           <SimpleGrid cols={{ base: 1, xs: 2, md: 5 }}>
-            <NumberInput
+            <NumberField
               label="Количество, шт."
-              value={quantity ?? ''}
-              onChange={(value) => setQuantity(typeof value === 'number' ? value : undefined)}
+              value={quantity}
+              onChange={setQuantity}
               min={1}
               allowDecimal={false}
               thousandSeparator=" "
@@ -109,10 +109,10 @@ export function ProfitCalculator({ bond }: { bond: Bond }) {
               onChange={(event) => setBuyDate(event.currentTarget.value)}
               error={errors.buyDate}
             />
-            <NumberInput
+            <NumberField
               label="Цена покупки, % номинала"
-              value={buyPrice ?? ''}
-              onChange={(value) => setBuyPrice(typeof value === 'number' ? value : undefined)}
+              value={buyPrice}
+              onChange={setBuyPrice}
               min={0}
               decimalScale={4}
               decimalSeparator=","
@@ -126,10 +126,10 @@ export function ProfitCalculator({ bond }: { bond: Bond }) {
               onChange={(event) => setSellDate(event.currentTarget.value)}
               error={errors.sellDate}
             />
-            <NumberInput
+            <NumberField
               label="Цена продажи, % номинала"
-              value={exitAtPar ? 100 : (sellPrice ?? '')}
-              onChange={(value) => setSellPrice(typeof value === 'number' ? value : undefined)}
+              value={exitAtPar ? 100 : sellPrice}
+              onChange={setSellPrice}
               min={0}
               decimalScale={4}
               decimalSeparator=","
@@ -175,11 +175,11 @@ export function ProfitCalculator({ bond }: { bond: Bond }) {
                 disabled={!taxEnabled}
               />
             </Group>
-            <NumberInput
+            <NumberField
               label="Вклад для сравнения, % годовых"
               description={depositRateInput === null && keyRate !== undefined ? 'ключевая ставка ЦБ' : 'пусто — не сравнивать'}
-              value={depositRate ?? ''}
-              onChange={(value) => setDepositRateInput(typeof value === 'number' ? value : undefined)}
+              value={depositRate}
+              onChange={setDepositRateInput}
               min={0}
               max={99}
               decimalScale={2}
