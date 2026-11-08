@@ -28,7 +28,7 @@ import { BondSearch } from '../components/BondSearch';
 import { BrokerSelect } from '../components/BrokerSelect';
 import { ErrorState } from '../components/ErrorState';
 import { isIsoDate, todayIso } from '../lib/dates';
-import { formatChange, formatDate, formatMoney, formatNumber, formatPercent } from '../lib/format';
+import { formatChange, formatDate, formatMoney, formatNumber, formatPercent, isRubCurrency } from '../lib/format';
 
 /** «Портфель»: покупки облигаций, их текущая стоимость и доход от цены покупки */
 export function PortfolioPage() {
@@ -98,6 +98,21 @@ function signedMoney(value: number | null, currency: string | null): string {
   return value < 0 ? `−${formatted}` : formatted;
 }
 
+/**
+ * Подпись в рублях под суммой в валюте; у рублёвых покупок и без курса её нет - вторая строка с тем же числом
+ * или прочерком ничего не добавляет
+ */
+function RubCaption({ value, currency, signed = false }: { value: number | null; currency: string | null; signed?: boolean }) {
+  if (value == null || isRubCurrency(currency)) {
+    return null;
+  }
+  return (
+    <Text size="xs" c="dimmed">
+      {signed ? signedMoney(value, 'rub') : money(value, 'rub')}
+    </Text>
+  );
+}
+
 function signedPercent(value: number | null): string {
   return value == null ? '—' : `${formatChange(value)} %`;
 }
@@ -117,12 +132,11 @@ function Totals({ totals }: { totals: PortfolioTotal[] }) {
           <Text fw={600} size="xl">
             {money(total.currentAmount, total.currency)}
           </Text>
-          <Text size="sm" c="dimmed">
-            куплено на {money(total.buyAmount, total.currency)}
-          </Text>
+          <RubCaption value={total.currentAmountInRub} currency={total.currency} />
           <Text fw={500} c={revenueColor(total.revenue)} mt={4}>
             {signedMoney(total.revenue, total.currency)} ({signedPercent(total.revenuePercent)})
           </Text>
+          <RubCaption value={total.revenueInRub} currency={total.currency} signed />
         </Card>
       ))}
     </SimpleGrid>
@@ -199,14 +213,13 @@ function PositionRow({ position, onEdit }: { position: PortfolioPosition; onEdit
       <Table.Td ta="right">{formatPercent(position.currentPrice)}</Table.Td>
       <Table.Td ta="right">
         <Text size="sm">{money(position.currentAmount, position.currency)}</Text>
-        <Text size="xs" c="dimmed">
-          куплено на {money(position.buyAmount, position.currency)}
-        </Text>
+        <RubCaption value={position.currentAmountInRub} currency={position.currency} />
       </Table.Td>
       <Table.Td ta="right">
         <Text size="sm" fw={500} c={revenueColor(position.revenue)}>
           {signedMoney(position.revenue, position.currency)}
         </Text>
+        <RubCaption value={position.revenueInRub} currency={position.currency} signed />
       </Table.Td>
       <Table.Td ta="right">
         <Text size="sm" fw={500} c={revenueColor(position.revenuePercent)}>

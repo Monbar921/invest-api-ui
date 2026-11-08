@@ -369,6 +369,15 @@ export interface PortfolioPosition {
   revenue: number | null;
   /** Доход в % к стоимости покупки */
   revenuePercent: number | null;
+  /** Стоимость покупки в рублях по курсу ЦБ на дату покупки; null - курса нет */
+  buyAmountInRub: number | null;
+  /** Текущая стоимость в рублях по курсу ЦБ на сегодня; null - цены или курса нет */
+  currentAmountInRub: number | null;
+  /**
+   * Доход в рублях: текущая стоимость в рублях − стоимость покупки в рублях, то есть вместе с изменением курса валюты;
+   * null - цены или одного из курсов нет
+   */
+  revenueInRub: number | null;
   createdAt: string;
 }
 
@@ -379,6 +388,12 @@ export interface PortfolioTotal {
   currentAmount: number;
   revenue: number;
   revenuePercent: number | null;
+  /** Сумма стоимостей покупки в рублях по курсам на даты покупок */
+  buyAmountInRub: number | null;
+  /** Сумма текущих стоимостей в рублях по курсу на сегодня */
+  currentAmountInRub: number | null;
+  /** Текущая стоимость в рублях − стоимость покупки в рублях; null, если у какой-то покупки нет курса */
+  revenueInRub: number | null;
 }
 
 export interface Portfolio {

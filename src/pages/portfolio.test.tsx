@@ -20,6 +20,9 @@ const position = (overrides: Partial<PortfolioPosition>): PortfolioPosition => (
   currentAmount: 10050,
   revenue: 200,
   revenuePercent: 2.03,
+  buyAmountInRub: 9850,
+  currentAmountInRub: 10050,
+  revenueInRub: 200,
   createdAt: '2026-11-08T10:00:00Z',
   ...overrides,
 });
@@ -41,7 +44,18 @@ const portfolio: Portfolio = {
       revenuePercent: -12.86,
     }),
   ],
-  totals: [{ currency: 'rub', buyAmount: 11250, currentAmount: 11270, revenue: 20, revenuePercent: 0.18 }],
+  totals: [
+    {
+      currency: 'rub',
+      buyAmount: 11250,
+      currentAmount: 11270,
+      revenue: 20,
+      revenuePercent: 0.18,
+      buyAmountInRub: 11250,
+      currentAmountInRub: 11270,
+      revenueInRub: 20,
+    },
+  ],
 };
 
 const bond = {
@@ -167,6 +181,51 @@ describe('PortfolioPage', () => {
     const put = calls.find((call) => call.init?.method === 'PUT')!;
     expect(put.url).toBe('/api/portfolio/positions/2');
     expect(JSON.parse(String(put.init?.body))).toEqual({ quantity: 4, buyPrice: 70, buyDate: '2026-01-15', broker: '' });
+  });
+
+  it('показывает рубли под суммами в валюте и не показывает у рублёвых', async () => {
+    mockApi({
+      positions: [
+        position({
+          id: 5,
+          ticker: 'RU000A107JN3',
+          bondName: 'ТМК ЗО-2027',
+          currency: 'usd',
+          buyAmount: 954.99,
+          currentAmount: 944.15,
+          revenue: -10.84,
+          revenuePercent: -1.14,
+          buyAmountInRub: 76399.2,
+          currentAmountInRub: 76476.15,
+          revenueInRub: 76.95,
+        }),
+        position({}),
+      ],
+      totals: [
+        {
+          currency: 'usd',
+          buyAmount: 954.99,
+          currentAmount: 944.15,
+          revenue: -10.84,
+          revenuePercent: -1.14,
+          buyAmountInRub: 76399.2,
+          currentAmountInRub: 76476.15,
+          revenueInRub: 76.95,
+        },
+      ],
+    });
+    renderPage();
+
+    const usdRow = (await screen.findByText('ТМК ЗО-2027')).closest('tr')!;
+    expect(within(usdRow).getByText(byText('76 476,15 ₽'))).toBeInTheDocument();
+    // в долларах убыток, в рублях - прибыль: доллар подорожал с даты покупки
+    expect(within(usdRow).getByText(byText('+76,95 ₽'))).toBeInTheDocument();
+    // в итоге - те же подписи
+    expect(screen.getAllByText(byText('76 476,15 ₽'))).toHaveLength(2);
+    // у рублёвой покупки рубли не повторяются
+    const rubRow = screen.getByText('Авто Финанс Банк БО-001Р-18').closest('tr')!;
+    expect(within(rubRow).getAllByText(byText('10 050,00 ₽'))).toHaveLength(1);
+    expect(screen.queryByText(/куплено на/)).not.toBeInTheDocument();
   });
 
   it('показывает брокера покупки', async () => {
