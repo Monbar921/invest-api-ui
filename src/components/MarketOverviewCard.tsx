@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Group, SimpleGrid, Skeleton, Stack, Text } from '@mantine/core';
 import { IconArrowDownRight, IconArrowRight, IconArrowUpRight } from '@tabler/icons-react';
 import { useMarketOverview } from '../api/queries';
@@ -15,8 +16,10 @@ export function MarketOverviewCard() {
     return null;
   }
 
-  const { keyRate, keyRateSince, previousKeyRate, keyRateYearChange, keyRateMeetingDate, keyRateMeetingChange } = query.data;
+  const { keyRate, keyRateYearChange, keyRateMeetingDate, keyRateMeetingChange } = query.data;
   const currencies = query.data.currencies ?? [];
+  // плитки ставки - в той же сетке, что и курсы: колонки совпадают
+  const cols = Math.max(currencies.length, 2);
 
   return (
     <Stack gap="xs">
@@ -28,27 +31,39 @@ export function MarketOverviewCard() {
           <Text size="xl" fw={600}>
             {formatPercent(keyRate)}
           </Text>
-          <Group gap="md">
-            {keyRateYearChange != null && <Delta value={keyRateYearChange} suffix=" п.п." label="с начала года" />}
-            {keyRateMeetingChange != null && keyRateMeetingDate && (
-              <Delta value={keyRateMeetingChange} suffix=" п.п." label={`на заседании ${formatDate(keyRateMeetingDate)}`} />
+          <SimpleGrid cols={cols} spacing="xs" mt={4}>
+            {keyRateYearChange != null && (
+              <ChangeTile caption="С начала года">
+                <Delta value={keyRateYearChange} suffix=" п.п." />
+              </ChangeTile>
             )}
-          </Group>
-          {keyRateSince && (
-            <Text size="xs" c="dimmed">
-              с {formatDate(keyRateSince)}
-              {previousKeyRate != null && `, до этого ${formatPercent(previousKeyRate)}`}
-            </Text>
-          )}
+            {keyRateMeetingChange != null && keyRateMeetingDate && (
+              <ChangeTile caption={`На заседании ${formatDate(keyRateMeetingDate).slice(0, 5)}`}>
+                <Delta value={keyRateMeetingChange} suffix=" п.п." />
+              </ChangeTile>
+            )}
+          </SimpleGrid>
         </Stack>
       )}
       {currencies.length > 0 && (
-        <SimpleGrid cols={currencies.length} spacing="xs">
+        <SimpleGrid cols={cols} spacing="xs">
           {currencies.map((currency) => (
             <CurrencyTile key={currency.code} currency={currency} />
           ))}
         </SimpleGrid>
       )}
+    </Stack>
+  );
+}
+
+/** Плитка изменения ставки - подпись как у кода валюты, ниже стрелка с числом */
+function ChangeTile({ caption, children }: { caption: string; children: ReactNode }) {
+  return (
+    <Stack gap={2}>
+      <Text size="xs" c="dimmed" fw={600}>
+        {caption}
+      </Text>
+      {children}
     </Stack>
   );
 }
@@ -69,9 +84,9 @@ function CurrencyTile({ currency }: { currency: CurrencyRate }) {
 
 /**
  * Рост - зелёным со стрелкой вверх, снижение - красным вниз, без изменения - серым со стрелкой вправо: все изменения
- * выглядят одинаково. Подпись (за какой период) - серым после числа.
+ * выглядят одинаково.
  */
-function Delta({ value, suffix = '', label }: { value: number; suffix?: string; label?: string }) {
+function Delta({ value, suffix = '' }: { value: number; suffix?: string }) {
   // ставка в п.п. считается вычитанием дробных - убираем хвост вроде 0,25000000000000355
   const rounded = Math.round(value * 10000) / 10000;
   const color = rounded > 0 ? 'teal' : rounded < 0 ? 'red' : 'dimmed';
@@ -85,11 +100,6 @@ function Delta({ value, suffix = '', label }: { value: number; suffix?: string; 
         {formatChange(rounded)}
         {suffix}
       </Text>
-      {label && (
-        <Text size="xs" c="dimmed" ml={4}>
-          {label}
-        </Text>
-      )}
     </Group>
   );
 }
