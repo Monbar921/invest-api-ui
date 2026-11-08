@@ -178,6 +178,11 @@ const sent = (calls: { url: string; init?: RequestInit }[], method: string) => {
 
 const renderPage = () => renderRoute(<PortfolioPage />, { path: '/portfolio', url: '/portfolio' });
 
+/** Действия покупок - в раскрытой строке облигации */
+async function expand(name: string) {
+  await userEvent.click(await screen.findByRole('button', { name: `Показать покупки: ${name}` }));
+}
+
 afterEach(() => vi.unstubAllGlobals());
 
 describe('PortfolioPage', () => {
@@ -211,7 +216,7 @@ describe('PortfolioPage', () => {
     expect(within(row).getByText(/2 покупки/)).toBeInTheDocument();
     expect(within(row).getByText('2 брокера')).toBeInTheDocument();
     expect(within(row).getByText('19.09.2025 – 08.11.2026')).toBeInTheDocument();
-    expect(within(row).getByText('средняя')).toBeInTheDocument();
+
     // покупки не видны, пока строку не раскрыли
     expect(screen.queryByRole('button', { name: 'Изменить покупку: ТМК ЗО-2027 от 19.09.2025' })).not.toBeInTheDocument();
 
@@ -222,6 +227,21 @@ describe('PortfolioPage', () => {
     expect(screen.getByText('АльфаБанк')).toBeInTheDocument();
     // у покупки с введённой рублёвой суммой она видна под ценой
     expect(screen.getByText(byText('77 500,00 ₽'))).toBeInTheDocument();
+  });
+
+  it('строка облигации с одной покупкой - такая же, как с несколькими', async () => {
+    mockApi();
+    renderPage();
+
+    const row = (await screen.findByText('ОФЗ 26238')).closest('tr')!;
+    expect(within(row).getByText(/1 покупка/)).toBeInTheDocument();
+    expect(within(row).getByRole('button', { name: 'Показать покупки: ОФЗ 26238' })).toBeInTheDocument();
+    expect(within(row).getByRole('button', { name: 'Добавить покупку: ОФЗ 26238' })).toBeInTheDocument();
+    // изменить и удалить - только у раскрытых покупок
+    expect(within(row).queryByRole('button', { name: /Изменить покупку/ })).not.toBeInTheDocument();
+
+    await expand('ОФЗ 26238');
+    expect(screen.getByRole('button', { name: 'Изменить покупку: ОФЗ 26238 от 15.01.2026' })).toBeInTheDocument();
   });
 
   it('«+» в строке облигации открывает покупку этой облигации', async () => {
@@ -265,7 +285,7 @@ describe('PortfolioPage', () => {
     const calls = mockApi({ groups: [tmk], totals: [] });
     renderPage();
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Показать покупки: ТМК ЗО-2027' }));
+    await expand('ТМК ЗО-2027');
     await userEvent.click(screen.getByRole('button', { name: 'Изменить покупку: ТМК ЗО-2027 от 08.11.2026' }));
     const dialog = await screen.findByRole('dialog');
     await userEvent.type(within(dialog).getByLabelText(/Заплачено/), '76900');
@@ -279,7 +299,7 @@ describe('PortfolioPage', () => {
     const calls = mockApi({ groups: [tmk], totals: [] });
     renderPage();
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Показать покупки: ТМК ЗО-2027' }));
+    await expand('ТМК ЗО-2027');
     await userEvent.click(screen.getByRole('button', { name: 'Изменить покупку: ТМК ЗО-2027 от 08.11.2026' }));
     const dialog = await screen.findByRole('dialog');
 
@@ -317,7 +337,8 @@ describe('PortfolioPage', () => {
     const calls = mockApi();
     renderPage();
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Изменить покупку: ОФЗ 26238 от 15.01.2026' }));
+    await expand('ОФЗ 26238');
+    await userEvent.click(screen.getByRole('button', { name: 'Изменить покупку: ОФЗ 26238 от 15.01.2026' }));
     const dialog = await screen.findByRole('dialog');
     const quantity = within(dialog).getByLabelText('Количество, шт.');
     await userEvent.clear(quantity);
@@ -373,7 +394,8 @@ describe('PortfolioPage', () => {
     const calls = mockApi();
     renderPage();
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Изменить покупку: ОФЗ 26238 от 15.01.2026' }));
+    await expand('ОФЗ 26238');
+    await userEvent.click(screen.getByRole('button', { name: 'Изменить покупку: ОФЗ 26238 от 15.01.2026' }));
     const dialog = await screen.findByRole('dialog');
     await userEvent.click(within(dialog).getByLabelText('Брокер'));
     await userEvent.click(await screen.findByText('Альфа'));
@@ -387,7 +409,8 @@ describe('PortfolioPage', () => {
     const calls = mockApi();
     renderPage();
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Изменить покупку: ОФЗ 26238 от 15.01.2026' }));
+    await expand('ОФЗ 26238');
+    await userEvent.click(screen.getByRole('button', { name: 'Изменить покупку: ОФЗ 26238 от 15.01.2026' }));
     const dialog = await screen.findByRole('dialog');
     await userEvent.type(within(dialog).getByLabelText('Брокер'), 'Финам');
     await userEvent.click(await screen.findByText('+ Добавить «Финам»'));
@@ -401,7 +424,8 @@ describe('PortfolioPage', () => {
     const calls = mockApi();
     renderPage();
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Удалить покупку: ОФЗ 26238 от 15.01.2026' }));
+    await expand('ОФЗ 26238');
+    await userEvent.click(screen.getByRole('button', { name: 'Удалить покупку: ОФЗ 26238 от 15.01.2026' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Удалить' }));
 
     await waitFor(() =>

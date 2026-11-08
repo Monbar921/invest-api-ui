@@ -185,7 +185,11 @@ function PositionsTable({
               <Table.Th>Брокер</Table.Th>
               <Table.Th>Дата покупки</Table.Th>
               <Table.Th ta="right">Кол-во</Table.Th>
-              <Table.Th ta="right">Цена покупки</Table.Th>
+              <Table.Th ta="right">
+                <Tooltip label="У облигации - средняя по покупкам, взвешенная по количеству">
+                  <span style={{ cursor: 'help' }}>Цена покупки</span>
+                </Tooltip>
+              </Table.Th>
               <Table.Th ta="right">Текущая цена</Table.Th>
               <Table.Th ta="right">Стоимость</Table.Th>
               <Table.Th ta="right">Доход</Table.Th>
@@ -230,8 +234,8 @@ function datesLabel(first: string, last: string): string {
 }
 
 /**
- * Облигация одной строкой. Одна покупка - изменить и удалить прямо в строке; несколько - строка-свод с суммами
- * и средней ценой, покупки раскрываются под ней, у каждой свои действия.
+ * Облигация одной строкой - всегда одинаково, сколько бы ни было покупок: свод с суммами и средней ценой, стрелка
+ * раскрывает покупки (у каждой «изменить» / «удалить»), «+» - ещё покупка этой облигации.
  */
 function GroupRows({
   group,
@@ -244,7 +248,6 @@ function GroupRows({
 }) {
   const [expanded, setExpanded] = useState(false);
   const name = group.bondName ?? group.ticker;
-  const single = group.positions.length === 1 ? group.positions[0]! : null;
   const toggleLabel = `${expanded ? 'Скрыть' : 'Показать'} покупки: ${name}`;
 
   return (
@@ -252,11 +255,9 @@ function GroupRows({
       <Table.Tr>
         <Table.Td>
           <Group gap={6} wrap="nowrap" align="flex-start">
-            {single == null && (
-              <ActionIcon variant="subtle" color="gray" size="sm" aria-label={toggleLabel} onClick={() => setExpanded((v) => !v)}>
-                {expanded ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
-              </ActionIcon>
-            )}
+            <ActionIcon variant="subtle" color="gray" size="sm" aria-label={toggleLabel} onClick={() => setExpanded((v) => !v)}>
+              {expanded ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
+            </ActionIcon>
             <div>
               {group.bondName ? (
                 <Anchor component={Link} to={`/bonds/${encodeURIComponent(group.ticker)}`} size="sm" fw={500}>
@@ -269,8 +270,7 @@ function GroupRows({
               )}
               <Text size="xs" c="dimmed">
                 {group.bondName ? group.ticker : 'облигации больше нет в списке торгуемых'}
-                {single == null &&
-                  ` · ${group.positions.length} ${plural(group.positions.length, 'покупка', 'покупки', 'покупок')}`}
+                {` · ${group.positions.length} ${plural(group.positions.length, 'покупка', 'покупки', 'покупок')}`}
               </Text>
             </div>
           </Group>
@@ -280,16 +280,7 @@ function GroupRows({
         </Table.Td>
         <Table.Td>{datesLabel(group.firstBuyDate, group.lastBuyDate)}</Table.Td>
         <Table.Td ta="right">{formatNumber(group.quantity)}</Table.Td>
-        <Table.Td ta="right">
-          <Text size="sm">{formatPercent(group.buyPrice)}</Text>
-          {single == null ? (
-            <Text size="xs" c="dimmed">
-              средняя
-            </Text>
-          ) : (
-            <PaidRubCaption position={single} />
-          )}
-        </Table.Td>
+        <Table.Td ta="right">{formatPercent(group.buyPrice)}</Table.Td>
         <Table.Td ta="right">{formatPercent(group.currentPrice)}</Table.Td>
         <AmountCells
           currency={group.currency}
@@ -300,21 +291,16 @@ function GroupRows({
           revenuePercent={group.revenuePercent}
         />
         <Table.Td>
-          {single ? (
-            <PositionActions position={single} onEdit={() => onEdit(single)} />
-          ) : (
-            <Group gap={4} wrap="nowrap" justify="flex-end">
-              <Tooltip label="Ещё покупка этой облигации">
-                <ActionIcon variant="subtle" color="gray" aria-label={`Добавить покупку: ${name}`} onClick={onAdd}>
-                  <IconPlus size={16} />
-                </ActionIcon>
-              </Tooltip>
-            </Group>
-          )}
+          <Group gap={4} wrap="nowrap" justify="flex-end">
+            <Tooltip label="Ещё покупка этой облигации">
+              <ActionIcon variant="subtle" color="gray" aria-label={`Добавить покупку: ${name}`} onClick={onAdd}>
+                <IconPlus size={16} />
+              </ActionIcon>
+            </Tooltip>
+          </Group>
         </Table.Td>
       </Table.Tr>
-      {single == null &&
-        expanded &&
+      {expanded &&
         group.positions.map((position) => (
           <Table.Tr key={position.id} bg="var(--mantine-color-default-hover)">
             <Table.Td pl={44}>
