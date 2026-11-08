@@ -1,10 +1,23 @@
-import { Alert as MantineAlert, Group, Loader, Stack, Switch, Text } from '@mantine/core';
+import {
+  ActionIcon,
+  Alert as MantineAlert,
+  Button,
+  Divider,
+  Group,
+  Loader,
+  NumberInput,
+  Select,
+  Stack,
+  Switch,
+  Text,
+} from '@mantine/core';
+import { IconTrash } from '@tabler/icons-react';
 import { useState } from 'react';
 import { MAX_ALERT_DAYS } from '../api/alerts';
-import { useAlertMutations, useAlerts, useTelegramStatus } from '../api/queries';
-import type { Alert, AlertType } from '../api/types';
-import { ALERT_TYPES } from '../lib/alerts';
-import { plural } from '../lib/format';
+import { useAlertMutations, useAlerts, useBond, useTelegramStatus } from '../api/queries';
+import type { Alert, AlertDirection, AlertType, PriceAlertType } from '../api/types';
+import { ALERT_TYPES, describePriceAlert, isDateAlert, PRICE_ALERT_TYPES } from '../lib/alerts';
+import { formatPercent, plural } from '../lib/format';
 import { DebouncedNumberInput } from './DebouncedNumberInput';
 
 /**
@@ -32,10 +45,14 @@ export function BondAlertsPanel({ ticker }: { ticker: string }) {
     );
   }
 
-  const byType = new Map(alerts.data.filter((alert) => alert.ticker === ticker).map((alert) => [alert.type, alert]));
+  const bondAlerts = alerts.data.filter((alert) => alert.ticker === ticker);
+  const byType = new Map(bondAlerts.filter((alert) => isDateAlert(alert.type)).map((alert) => [alert.type, alert]));
 
   return (
     <Stack gap="sm">
+      <Text size="sm" fw={600}>
+        Даты выплат
+      </Text>
       {ALERT_TYPES.map((item) => (
         <AlertRow
           key={item.type}
@@ -56,6 +73,116 @@ export function BondAlertsPanel({ ticker }: { ticker: string }) {
           onDays={(id, days) => update.mutate({ id, days })}
         />
       ))}
+      {error && (
+        <Text size="xs" c="red">
+          {error.message}
+        </Text>
+      )}
+      <Divider />
+      <PriceAlerts ticker={ticker} alerts={bondAlerts.filter((alert) => !isDateAlert(alert.type))} />
+    </Stack>
+  );
+}
+
+/**
+ * Пороги по цене и доходности: их может быть несколько на облигацию (например, «выше 101%» и «ниже 95%»).
+ * Сработавший уровень снова взводится, когда значение вернётся за порог; изменение от текущей цены - разовое.
+ */
+function PriceAlerts({ ticker, alerts }: { ticker: string; alerts: Alert[] }) {
+  const bond = useBond(ticker);
+  const { create, update, remove } = useAlertMutations();
+  const [type, setType] = useState<PriceAlertType>('PRICE_LEVEL');
+  const config = PRICE_ALERT_TYPES.find((item) => item.type === type) ?? PRICE_ALERT_TYPES[0]!;
+  const [direction, setDirection] = useState<AlertDirection>(config.defaultDirection);
+  const [threshold, setThreshold] = useState<number | string>(config.defaultThreshold);
+  const error = create.error ?? update.error ?? remove.error;
+
+  const changeType = (next: PriceAlertType) => {
+    const nextConfig = PRICE_ALERT_TYPES.find((item) => item.type === next) ?? PRICE_ALERT_TYPES[0]!;
+    setType(next);
+    setDirection(nextConfig.defaultDirection);
+    setThreshold(nextConfig.defaultThreshold);
+  };
+  const value = typeof threshold === 'number' ? threshold : Number.parseFloat(threshold.replace(',', '.'));
+  const valid = Number.isFinite(value) && value >= config.min && value <= config.max;
+
+  return (
+    <Stack gap="xs">
+      <Text size="sm" fw={600}>
+        Цена и доходность
+      </Text>
+      {bond.data && (
+        <Text size="xs" c="dimmed">
+          Сейчас: цена {formatPercent(bond.data.price?.percentagePrice)} номинала, к погашению{' '}
+          {formatPercent(bond.data.coupon?.yieldToMaturity)}
+          {bond.data.coupon?.yieldToOffer != null && `, к оферте ${formatPercent(bond.data.coupon.yieldToOffer)}`}
+        </Text>
+      )}
+      {alerts.map((alert) => (
+        <Group key={alert.id} justify="space-between" wrap="nowrap" gap="xs">
+          <Switch
+            checked={alert.enabled}
+            onChange={(event) => update.mutate({ id: alert.id, enabled: event.currentTarget.checked })}
+            label={describePriceAlert(alert)}
+            description={alert.state === 'TRIGGERED' ? 'сработало, ждёт возврата за порог' : undefined}
+            aria-label={describePriceAlert(alert)}
+          />
+          <ActionIcon
+            variant="subtle"
+            color="gray"
+            aria-label={`Удалить: ${describePriceAlert(alert)}`}
+            onClick={() => remove.mutate(alert.id)}
+          >
+            <IconTrash size={16} />
+          </ActionIcon>
+        </Group>
+      ))}
+      <Group gap="xs" align="flex-end" wrap="wrap">
+        <Select
+          label="Уведомить, когда"
+          data={PRICE_ALERT_TYPES.map((item) => ({ value: item.type, label: item.label }))}
+          value={type}
+          onChange={(next) => next && changeType(next as PriceAlertType)}
+          allowDeselect={false}
+          size="xs"
+          w={210}
+        />
+        <Select
+          aria-label="Направление"
+          data={config.directions}
+          value={direction}
+          onChange={(next) => next && setDirection(next as AlertDirection)}
+          allowDeselect={false}
+          size="xs"
+          w={150}
+        />
+        <NumberInput
+          aria-label="Порог"
+          value={threshold}
+          onChange={setThreshold}
+          min={config.min}
+          max={config.max}
+          decimalSeparator=","
+          rightSection={
+            <Text size="xs" c="dimmed" pr={4}>
+              %
+            </Text>
+          }
+          size="xs"
+          w={90}
+        />
+        <Button
+          size="xs"
+          disabled={!valid}
+          loading={create.isPending}
+          onClick={() => create.mutate({ ticker, type, direction, threshold: value })}
+        >
+          Добавить
+        </Button>
+      </Group>
+      <Text size="xs" c="dimmed">
+        {config.unit === '%' ? 'в процентах от цены' : config.unit}, от {config.min} до {config.max}
+      </Text>
       {error && (
         <Text size="xs" c="red">
           {error.message}

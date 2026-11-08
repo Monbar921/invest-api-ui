@@ -11,9 +11,17 @@ import {
   searchBonds,
 } from './bonds';
 import { ApiError } from './client';
-import { createAlert, deleteAlert, fetchAlerts, fetchNotifications, updateAlert } from './alerts';
+import {
+  type AlertChanges,
+  type AlertRule,
+  createAlert,
+  deleteAlert,
+  fetchAlerts,
+  fetchNotifications,
+  updateAlert,
+} from './alerts';
 import { createTelegramLink, fetchTelegramStatus, unlinkTelegram } from './telegram';
-import type { AlertType, BondParameters, BondScope, CandleInterval, NewsSource, Page, ProfitCalculationRequest } from './types';
+import type { BondParameters, BondScope, CandleInterval, NewsSource, Page, ProfitCalculationRequest } from './types';
 
 export const bondKeys = {
   all: ['bonds'] as const,
@@ -197,12 +205,9 @@ export function useAlertMutations() {
   // правило могло сразу поставить уведомление в очередь - история тоже меняется
   const onSuccess = () => queryClient.invalidateQueries({ queryKey: alertKeys.all });
   return {
-    create: useMutation({
-      mutationFn: ({ ticker, type, days }: { ticker: string; type: AlertType; days: number }) => createAlert(ticker, type, days),
-      onSuccess,
-    }),
+    create: useMutation({ mutationFn: (rule: AlertRule) => createAlert(rule), onSuccess }),
     update: useMutation({
-      mutationFn: ({ id, ...changes }: { id: number; days?: number; enabled?: boolean }) => updateAlert(id, changes),
+      mutationFn: ({ id, ...changes }: AlertChanges & { id: number }) => updateAlert(id, changes),
       onSuccess,
     }),
     remove: useMutation({ mutationFn: deleteAlert, onSuccess }),

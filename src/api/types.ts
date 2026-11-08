@@ -283,7 +283,18 @@ export interface TelegramLink {
 }
 
 /** Правило по дате события облигации: предупредить за days дней */
-export type AlertType = 'COUPON_BEFORE' | 'AMORTIZATION_BEFORE' | 'OFFER_BEFORE' | 'MATURITY_BEFORE';
+export type DateAlertType = 'COUPON_BEFORE' | 'AMORTIZATION_BEFORE' | 'OFFER_BEFORE' | 'MATURITY_BEFORE';
+
+/**
+ * Правило по цене и доходности: уровень цены (% от номинала), изменение цены в % (от цены при создании или за день),
+ * уровень доходности к погашению или к оферте (% годовых)
+ */
+export type PriceAlertType = 'PRICE_LEVEL' | 'PRICE_CHANGE' | 'PRICE_DAILY_CHANGE' | 'YTM_LEVEL' | 'YTO_LEVEL';
+
+export type AlertType = DateAlertType | PriceAlertType;
+
+/** UP - выросло до уровня или на порог, DOWN - снизилось, ANY - в любую сторону (только изменения цены) */
+export type AlertDirection = 'UP' | 'DOWN' | 'ANY';
 
 /** Правило уведомления пользователя по облигации */
 export interface Alert {
@@ -293,8 +304,16 @@ export interface Alert {
   bondName: string | null;
   isin: string | null;
   type: AlertType;
-  /** 1..60 */
-  days: number;
+  /** 1..60; только у правил по датам */
+  days: number | null;
+  /** Только у правил по цене и доходности */
+  direction: AlertDirection | null;
+  /** Уровень (% от номинала, % годовых) или изменение цены в % */
+  threshold: number | null;
+  /** У PRICE_CHANGE: цена при создании или включении, % от номинала */
+  baseValue: number | null;
+  /** У уровней: взведено или уже сработало (снова взведётся, когда значение вернётся за порог) */
+  state: 'ARMED' | 'TRIGGERED' | null;
   enabled: boolean;
   createdAt: string;
   /** Когда правило последний раз поставило уведомление в очередь */

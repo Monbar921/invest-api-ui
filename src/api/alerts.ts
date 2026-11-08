@@ -1,5 +1,5 @@
 import { request } from './client';
-import type { Alert, AlertType, NotificationItem, Page } from './types';
+import type { Alert, AlertDirection, AlertType, NotificationItem, Page } from './types';
 
 // gateway пропускает /api/alerts/** в invest-api и добавляет пользователя из сессии
 const ALERTS_PATH = '/api/alerts';
@@ -11,11 +11,27 @@ export function fetchAlerts(): Promise<Alert[]> {
   return request<Alert[]>(ALERTS_PATH);
 }
 
-export function createAlert(ticker: string, type: AlertType, days: number): Promise<Alert> {
-  return request<Alert>(ALERTS_PATH, { method: 'POST', body: JSON.stringify({ ticker, type, days }) });
+/** Новое правило: по дате - days, по цене и доходности - direction и threshold */
+export interface AlertRule {
+  ticker: string;
+  type: AlertType;
+  days?: number;
+  direction?: AlertDirection;
+  threshold?: number;
 }
 
-export function updateAlert(id: number, changes: { days?: number; enabled?: boolean }): Promise<Alert> {
+export interface AlertChanges {
+  days?: number;
+  direction?: AlertDirection;
+  threshold?: number;
+  enabled?: boolean;
+}
+
+export function createAlert(rule: AlertRule): Promise<Alert> {
+  return request<Alert>(ALERTS_PATH, { method: 'POST', body: JSON.stringify(rule) });
+}
+
+export function updateAlert(id: number, changes: AlertChanges): Promise<Alert> {
   return request<Alert>(`${ALERTS_PATH}/${id}`, { method: 'PUT', body: JSON.stringify(changes) });
 }
 

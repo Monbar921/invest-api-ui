@@ -14,6 +14,10 @@ const alert = (overrides: Partial<Alert> = {}): Alert => ({
   isin: TICKER,
   type: 'COUPON_BEFORE',
   days: 3,
+  direction: null,
+  threshold: null,
+  baseValue: null,
+  state: null,
   enabled: true,
   createdAt: '2026-11-08T10:00:00Z',
   lastTriggeredAt: null,
@@ -133,6 +137,49 @@ describe('BondAlertsButton', () => {
     await userEvent.click(await screen.findByRole('button', { name: `Уведомления: ${TICKER}` }));
 
     expect(await screen.findByText(/Telegram не подключён - уведомления не придут/)).toBeInTheDocument();
+  });
+});
+
+describe('BondAlertsButton: цена и доходность', () => {
+  it('добавляет порог цены с направлением и значением', async () => {
+    const calls = mockAlertsApi();
+    renderRoute(<BondAlertsButton ticker={TICKER} name={null} />, { path: '/bonds', url: '/bonds' });
+
+    await userEvent.click(await screen.findByRole('button', { name: `Уведомления: ${TICKER}` }));
+    // по умолчанию - «Цена, % от номинала», «опустится до», 95
+    await userEvent.click(await screen.findByRole('button', { name: 'Добавить' }));
+
+    await waitFor(() =>
+      expect(calls.find((call) => call.method === 'POST')?.body).toEqual({
+        ticker: TICKER,
+        type: 'PRICE_LEVEL',
+        direction: 'DOWN',
+        threshold: 95,
+      }),
+    );
+  });
+
+  it('показывает пороги понятным текстом и удаляет их', async () => {
+    const calls = mockAlertsApi({
+      alerts: [
+        alert({ id: 5, type: 'PRICE_LEVEL', days: null, direction: 'DOWN', threshold: 95, state: 'TRIGGERED' }),
+        alert({ id: 6, type: 'PRICE_DAILY_CHANGE', days: null, direction: 'ANY', threshold: 2.5 }),
+        alert({ id: 7, type: 'YTM_LEVEL', days: null, direction: 'UP', threshold: 20 }),
+      ],
+    });
+    renderRoute(<BondAlertsButton ticker={TICKER} name={null} />, { path: '/bonds', url: '/bonds' });
+
+    await userEvent.click(await screen.findByRole('button', { name: `Уведомления включены: ${TICKER}` }));
+
+    expect(await screen.findByRole('switch', { name: 'Цена ≤ 95% номинала' })).toBeChecked();
+    expect(screen.getByText('сработало, ждёт возврата за порог')).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'Цена за день ±2,5%' })).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'Доходность к погашению ≥ 20% годовых' })).toBeInTheDocument();
+    // правила по датам при этом выключены
+    expect(screen.getByRole('switch', { name: 'Купон' })).not.toBeChecked();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Удалить: Цена за день ±2,5%' }));
+    await waitFor(() => expect(calls.some((call) => call.method === 'DELETE' && call.url === '/api/alerts/6')).toBe(true));
   });
 });
 
