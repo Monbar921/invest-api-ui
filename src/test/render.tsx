@@ -70,7 +70,8 @@ export function mockFetch(...responses: { status?: number; body: unknown }[]) {
     }
     calls.push({ url, init });
     const response = responses[Math.min(index++, responses.length - 1)]!;
-    return new Response(JSON.stringify(response.body), {
+    // у 204 тела быть не может - Response с телом бросает TypeError
+    return new Response(response.status === 204 ? null : JSON.stringify(response.body), {
       status: response.status ?? 200,
       headers: { 'Content-Type': 'application/json' },
     });

@@ -16,16 +16,20 @@ TanStack Query - запросы и кэш, React Router - маршруты.
 | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `api/client.ts`                      | `fetch`-обёртка: same-origin cookie, CSRF-заголовок, 401 → логин, ошибки ProblemDetail                                                                                           |
 | `api/bonds.ts`                       | запросы к `/api/bonds/...`                                                                                                                                                       |
+| `api/telegram.ts`                    | запросы к `/api/alerts/telegram`: статус, ссылка привязки, отвязка                                                                                                               |
 | `api/queries.ts`                     | хуки TanStack Query (`useBondsPage`, `useBond`)                                                                                                                                  |
 | `api/types.ts`                       | типы ответов, вручную повторяют DTO из `invest-api-dto`                                                                                                                          |
 | `pages/`                             | `BondsPage`, `BondPage`, `NotFoundPage`                                                                                                                                          |
 | `components/`                        | таблица, фильтры, график выплат, бейдж риска, состояние ошибки; лента новостей (`NewsFeed`, `NewsList`, `MarketOverviewCard`), события и новости облигации (`BondEventsAndNews`) |
-| `layout/`                            | `AppLayout`: шапка, тема, выход                                                                                                                                                  |
+| `layout/`                            | `AppLayout`: шапка, кнопка Telegram (`components/TelegramConnect`), тема, выход                                                                                                  |
 | `lib/`                               | состояние таблицы в URL (`bondSearchParams`), форматирование денег, дат, риска                                                                                                   |
 | `router.tsx`, `theme.ts`, `main.tsx` | маршруты, тема Mantine, точка входа                                                                                                                                              |
 
 ## Экраны
 
+- Шапка: кнопка Telegram открывает панель уведомлений - статус (подключён ли, с какого времени, отвечает ли Telegram
+  серверу), «Подключить Telegram» выдаёт одноразовую ссылку на бота на 10 минут и ждёт, пока в боте нажмут «Старт»
+  (опрос раз в 3 секунды), «Отключить». Если бот выключен на сервере - только сообщение об этом.
 - `/bonds` - слева лента: ключевая ставка ЦБ (с какого дня, изменение с начала года и на последнем заседании), курсы USD / EUR / CNY с изменением, новости
   Банка России, Мосбиржи, рейтинговых агентств (АКРА, НКР - только дата, без времени) и СМИ с фильтром «Все / ЦБ /
   Биржа / Рейтинги / СМИ» и кнопкой «Показать ещё»; у новости - источник, время,
@@ -59,6 +63,9 @@ TanStack Query - запросы и кэш, React Router - маршруты.
 | `GET /api/bonds/market-overview`                         | ключевая ставка и курсы                         |
 | `GET /api/bonds/{ticker}/events`                         | события облигации                               |
 | `GET /api/bonds/{ticker}/news?page=&size=`               | новости облигации                               |
+| `GET /api/alerts/telegram`                               | статус Telegram пользователя                    |
+| `POST /api/alerts/telegram/link-token`                   | одноразовая ссылка привязки на 10 минут         |
+| `DELETE /api/alerts/telegram`                            | отвязать Telegram (`204`)                       |
 
 Пути относительные: UI и gateway на одном origin (в dev - через Vite proxy, на стенде - через ingress), иначе
 session cookie и `XSRF-TOKEN` не работают. `VITE_API_URL` нужен, только если API на другом адресе.

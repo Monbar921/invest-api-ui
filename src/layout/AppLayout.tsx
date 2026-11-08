@@ -14,6 +14,7 @@ import { IconCalculator, IconChartLine, IconLogout, IconMoon, IconSun } from '@t
 import type { ReactNode } from 'react';
 import { Link, NavLink, Outlet, useMatch } from 'react-router';
 import { logout } from '../api/client';
+import { TelegramConnect } from '../components/TelegramConnect';
 
 // у списка облигаций слева лента новостей - таблице нужна ширина больше стандартного контейнера
 const WIDE_PAGE_WIDTH = 1920;
@@ -38,6 +39,7 @@ export function AppLayout() {
               <NavButton to="/calculator" icon={<IconCalculator size={18} />} label="Калькулятор" />
             </Group>
             <Group gap="xs" wrap="nowrap">
+              <TelegramConnect />
               <ColorSchemeToggle />
               <LogoutButton />
             </Group>

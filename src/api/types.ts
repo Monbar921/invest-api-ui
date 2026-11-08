@@ -261,3 +261,23 @@ export interface BondEvent {
   /** Прошлый размер купона, если он изменился */
   previousAmount: Money | null;
 }
+
+/** Telegram пользователя: включён ли бот на сервере, привязан ли чат, отвечает ли Telegram */
+export interface TelegramStatus {
+  /** false - бот выключен в настройках invest-api, подключить нельзя */
+  enabled: boolean;
+  botUsername: string | null;
+  linked: boolean;
+  /** @username в Telegram на момент привязки; может отсутствовать */
+  username: string | null;
+  linkedAt: string | null;
+  /** Последнее обращение сервера к Telegram успешно; null - обращений ещё не было */
+  available: boolean | null;
+  checkedAt: string | null;
+}
+
+/** Одноразовая ссылка привязки: https://t.me/<bot>?start=<токен> */
+export interface TelegramLink {
+  url: string;
+  expiresAt: string;
+}

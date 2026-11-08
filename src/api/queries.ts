@@ -1,4 +1,4 @@
-import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   calculateProfit,
   fetchBond,
@@ -11,6 +11,7 @@ import {
   searchBonds,
 } from './bonds';
 import { ApiError } from './client';
+import { createTelegramLink, fetchTelegramStatus, unlinkTelegram } from './telegram';
 import type { BondParameters, BondScope, CandleInterval, NewsSource, Page, ProfitCalculationRequest } from './types';
 
 export const bondKeys = {
@@ -129,5 +130,36 @@ export function useBondEvents(ticker: string) {
     queryKey: bondKeys.events(ticker),
     queryFn: () => fetchBondEvents(ticker),
     staleTime: NEWS_STALE_TIME,
+  });
+}
+
+export const telegramKeys = {
+  status: ['telegram', 'status'] as const,
+};
+
+/** Пока пользователь открывает ссылку в Telegram, статус опрашивается - привязка появится после /start в боте */
+const TELEGRAM_LINK_POLL_INTERVAL = 3000;
+
+/**
+ * Статус Telegram. Запрашивается только когда открыта панель (enabled), а пока ждём привязку - каждые 3 секунды.
+ */
+export function useTelegramStatus(enabled: boolean, waitingForLink: boolean) {
+  return useQuery({
+    queryKey: telegramKeys.status,
+    queryFn: fetchTelegramStatus,
+    enabled,
+    refetchInterval: (query) => (waitingForLink && query.state.data?.linked !== true ? TELEGRAM_LINK_POLL_INTERVAL : false),
+  });
+}
+
+export function useCreateTelegramLink() {
+  return useMutation({ mutationFn: createTelegramLink });
+}
+
+export function useUnlinkTelegram() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: unlinkTelegram,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: telegramKeys.status }),
   });
 }
