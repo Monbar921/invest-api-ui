@@ -73,9 +73,11 @@ describe('NewsFeed', () => {
 
     expect(await screen.findByText('Ключевая ставка')).toBeInTheDocument();
     expect(screen.getByText(/16,5\s%/)).toBeInTheDocument();
-    expect(screen.getByText('−2 п.п. с начала года')).toBeInTheDocument();
-    // ставку сохранили - ноль без стрелки
-    expect(screen.getByText('0 п.п. на заседании 23.10.2026')).toBeInTheDocument();
+    expect(screen.getByText('−2 п.п.')).toBeInTheDocument();
+    expect(screen.getByText('с начала года')).toBeInTheDocument();
+    // ставку сохранили - ноль, как и остальные изменения, со стрелкой (серой)
+    expect(screen.getByText('0 п.п.')).toBeInTheDocument();
+    expect(screen.getByText('на заседании 23.10.2026')).toBeInTheDocument();
     expect(screen.getByText('+0,7')).toBeInTheDocument();
     expect(screen.getByText('−1,14')).toBeInTheDocument();
   });

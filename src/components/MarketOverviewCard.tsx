@@ -1,5 +1,5 @@
 import { Group, SimpleGrid, Skeleton, Stack, Text } from '@mantine/core';
-import { IconArrowDownRight, IconArrowUpRight } from '@tabler/icons-react';
+import { IconArrowDownRight, IconArrowRight, IconArrowUpRight } from '@tabler/icons-react';
 import { useMarketOverview } from '../api/queries';
 import type { CurrencyRate, MarketOverview } from '../api/types';
 import { formatChange, formatDate, formatNumber, formatPercent } from '../lib/format';
@@ -29,9 +29,9 @@ export function MarketOverviewCard() {
             {formatPercent(keyRate)}
           </Text>
           <Group gap="md">
-            {keyRateYearChange != null && <Delta value={keyRateYearChange} suffix=" п.п. с начала года" />}
+            {keyRateYearChange != null && <Delta value={keyRateYearChange} suffix=" п.п." label="с начала года" />}
             {keyRateMeetingChange != null && keyRateMeetingDate && (
-              <Delta value={keyRateMeetingChange} suffix={` п.п. на заседании ${formatDate(keyRateMeetingDate)}`} />
+              <Delta value={keyRateMeetingChange} suffix=" п.п." label={`на заседании ${formatDate(keyRateMeetingDate)}`} />
             )}
           </Group>
           {keyRateSince && (
@@ -67,20 +67,29 @@ function CurrencyTile({ currency }: { currency: CurrencyRate }) {
   );
 }
 
-/** Рост - зелёным со стрелкой вверх, снижение - красным; без изменения - серым */
-function Delta({ value, suffix = '' }: { value: number; suffix?: string }) {
+/**
+ * Рост - зелёным со стрелкой вверх, снижение - красным вниз, без изменения - серым со стрелкой вправо: все изменения
+ * выглядят одинаково. Подпись (за какой период) - серым после числа.
+ */
+function Delta({ value, suffix = '', label }: { value: number; suffix?: string; label?: string }) {
   // ставка в п.п. считается вычитанием дробных - убираем хвост вроде 0,25000000000000355
   const rounded = Math.round(value * 10000) / 10000;
   const color = rounded > 0 ? 'teal' : rounded < 0 ? 'red' : 'dimmed';
-  const Icon = rounded > 0 ? IconArrowUpRight : rounded < 0 ? IconArrowDownRight : null;
+  const Icon = rounded > 0 ? IconArrowUpRight : rounded < 0 ? IconArrowDownRight : IconArrowRight;
+  const iconColor = rounded === 0 ? 'var(--mantine-color-dimmed)' : `var(--mantine-color-${color}-6)`;
 
   return (
     <Group gap={2} wrap="nowrap">
-      {Icon && <Icon size={12} color={`var(--mantine-color-${color}-6)`} aria-hidden />}
+      <Icon size={12} color={iconColor} aria-hidden />
       <Text size="xs" c={color}>
         {formatChange(rounded)}
         {suffix}
       </Text>
+      {label && (
+        <Text size="xs" c="dimmed" ml={4}>
+          {label}
+        </Text>
+      )}
     </Group>
   );
 }
