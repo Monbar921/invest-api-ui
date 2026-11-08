@@ -1,0 +1,174 @@
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import type { Alert, NotificationItem, TelegramStatus } from '../api/types';
+import { AlertsPage } from '../pages/AlertsPage';
+import { renderRoute } from '../test/render';
+import { BondAlertsButton } from './BondAlertsButton';
+
+const TICKER = 'RU000A10EQ34';
+
+const alert = (overrides: Partial<Alert> = {}): Alert => ({
+  id: 1,
+  ticker: TICKER,
+  bondName: 'Авто Финанс Банк БО-001Р-18',
+  isin: TICKER,
+  type: 'COUPON_BEFORE',
+  days: 3,
+  enabled: true,
+  createdAt: '2026-11-08T10:00:00Z',
+  lastTriggeredAt: null,
+  ...overrides,
+});
+
+const telegram: TelegramStatus = {
+  enabled: true,
+  botUsername: 'invest_bonds_bot',
+  linked: true,
+  username: 'alice',
+  linkedAt: '2026-11-08T09:00:00Z',
+  available: true,
+  checkedAt: '2026-11-08T10:00:00Z',
+};
+
+const notification = (overrides: Partial<NotificationItem> = {}): NotificationItem => ({
+  id: 1,
+  alertId: 1,
+  ticker: TICKER,
+  text: 'Купон через 2 дня, 14.11.2026\nАвто Финанс Банк БО-001Р-18 (RU000A10EQ34)',
+  status: 'SENT',
+  attempts: 1,
+  createdAt: '2026-11-12T06:00:00Z',
+  sentAt: '2026-11-12T06:00:05Z',
+  lastError: null,
+  ...overrides,
+});
+
+const json = (body: unknown, status = 200) =>
+  new Response(status === 204 ? null : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+
+/** fetch по адресу и методу; правила берутся из alerts - мутации их меняют, как сервер */
+function mockAlertsApi({ alerts = [] as Alert[], telegramStatus = telegram, history = [] as NotificationItem[] } = {}) {
+  const calls: { method: string; url: string; body?: unknown }[] = [];
+  let current = [...alerts];
+
+  vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+    const method = init?.method ?? 'GET';
+    const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+    calls.push({ method, url, body });
+    if (url.endsWith('/api/alerts/telegram')) {
+      return json(telegramStatus);
+    }
+    if (url.includes('/api/alerts/notifications')) {
+      return json({ content: history, page: 0, size: 20, totalElements: history.length, totalPages: 1 });
+    }
+    if (url.endsWith('/api/alerts') && method === 'POST') {
+      const created = alert({ id: 100 + current.length, ...body });
+      current = [...current, created];
+      return json(created, 201);
+    }
+    const match = url.match(/\/api\/alerts\/(\d+)$/);
+    if (match && method === 'PUT') {
+      current = current.map((item) => (item.id === Number(match[1]) ? { ...item, ...body } : item));
+      return json(current.find((item) => item.id === Number(match[1])));
+    }
+    if (match && method === 'DELETE') {
+      current = current.filter((item) => item.id !== Number(match[1]));
+      return json(null, 204);
+    }
+    if (url.endsWith('/api/alerts')) {
+      return json(current);
+    }
+    return json({ title: 'Not Found' }, 404);
+  });
+
+  return calls;
+}
+
+afterEach(() => vi.unstubAllGlobals());
+
+describe('BondAlertsButton', () => {
+  it('включает уведомление о купоне со значением по умолчанию', async () => {
+    const calls = mockAlertsApi();
+    renderRoute(<BondAlertsButton ticker={TICKER} name="Авто Финанс" />, { path: '/bonds', url: '/bonds' });
+
+    await userEvent.click(await screen.findByRole('button', { name: `Уведомления: ${TICKER}` }));
+    const dialog = await screen.findByRole('dialog', { name: 'Уведомления: Авто Финанс' });
+    await userEvent.click(within(dialog).getByRole('switch', { name: 'Купон' }));
+
+    await waitFor(() =>
+      expect(calls.find((call) => call.method === 'POST')).toEqual({
+        method: 'POST',
+        url: '/api/alerts',
+        body: { ticker: TICKER, type: 'COUPON_BEFORE', days: 3 },
+      }),
+    );
+    // после включения колокольчик залит
+    expect(await screen.findByRole('button', { name: `Уведомления включены: ${TICKER}` })).toBeInTheDocument();
+  });
+
+  it('выключает правило, а не удаляет его', async () => {
+    const calls = mockAlertsApi({ alerts: [alert({ type: 'OFFER_BEFORE', days: 14 })] });
+    renderRoute(<BondAlertsButton ticker={TICKER} name={null} />, { path: '/bonds', url: '/bonds' });
+
+    await userEvent.click(await screen.findByRole('button', { name: `Уведомления включены: ${TICKER}` }));
+    const offer = await screen.findByRole('switch', { name: 'Оферта' });
+    expect(offer).toBeChecked();
+    expect(screen.getByRole('textbox', { name: 'Оферта: за сколько дней' })).toHaveValue('14');
+    await userEvent.click(offer);
+
+    await waitFor(() =>
+      expect(calls.find((call) => call.method === 'PUT')).toEqual({
+        method: 'PUT',
+        url: '/api/alerts/1',
+        body: { enabled: false },
+      }),
+    );
+    expect(calls.some((call) => call.method === 'DELETE')).toBe(false);
+  });
+
+  it('предупреждает, что Telegram не подключён', async () => {
+    mockAlertsApi({ telegramStatus: { ...telegram, linked: false } });
+    renderRoute(<BondAlertsButton ticker={TICKER} name={null} />, { path: '/bonds', url: '/bonds' });
+
+    await userEvent.click(await screen.findByRole('button', { name: `Уведомления: ${TICKER}` }));
+
+    expect(await screen.findByText(/Telegram не подключён - уведомления не придут/)).toBeInTheDocument();
+  });
+});
+
+describe('AlertsPage', () => {
+  it('показывает правила по облигациям и историю', async () => {
+    mockAlertsApi({
+      alerts: [alert(), alert({ id: 2, type: 'MATURITY_BEFORE', days: 30, enabled: false })],
+      history: [
+        notification(),
+        notification({ id: 2, status: 'FAILED', sentAt: null, lastError: 'Telegram не подключён', text: 'Оферта завтра' }),
+      ],
+    });
+
+    renderRoute(<AlertsPage />, { path: '/alerts', url: '/alerts' });
+
+    expect(await screen.findByRole('link', { name: 'Авто Финанс Банк БО-001Р-18' })).toHaveAttribute('href', `/bonds/${TICKER}`);
+    expect(screen.getByRole('switch', { name: 'Купон' })).toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Погашение' })).not.toBeChecked();
+    expect(await screen.findByText(/Купон через 2 дня/)).toBeInTheDocument();
+    expect(screen.getByText('Отправлено')).toBeInTheDocument();
+    expect(screen.getByText('Не отправлено')).toBeInTheDocument();
+    expect(screen.getByText('Telegram не подключён')).toBeInTheDocument();
+  });
+
+  it('удаляет все уведомления облигации', async () => {
+    const calls = mockAlertsApi({ alerts: [alert(), alert({ id: 2, type: 'MATURITY_BEFORE' })] });
+    renderRoute(<AlertsPage />, { path: '/alerts', url: '/alerts' });
+
+    await userEvent.click(await screen.findByRole('button', { name: `Удалить уведомления: ${TICKER}` }));
+
+    await waitFor(() =>
+      expect(calls.filter((call) => call.method === 'DELETE').map((call) => call.url)).toEqual([
+        '/api/alerts/1',
+        '/api/alerts/2',
+      ]),
+    );
+    expect(await screen.findByText(/Уведомлений пока нет/)).toBeInTheDocument();
+  });
+});

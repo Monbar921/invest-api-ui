@@ -1,4 +1,4 @@
-import { Anchor, Stack, Text } from '@mantine/core';
+import { Anchor, Group, Stack, Text } from '@mantine/core';
 import { DataTable, type DataTableColumn, type DataTableSortStatus } from 'mantine-datatable';
 import { Link, useNavigate } from 'react-router';
 import type { Bond, BondSortField, Coupon, Page, Price } from '../api/types';
@@ -14,6 +14,7 @@ import {
   isRubCurrency,
   plural,
 } from '../lib/format';
+import { BondAlertsButton } from './BondAlertsButton';
 import { RiskBadge } from './RiskBadge';
 
 interface Props {
@@ -42,15 +43,18 @@ const columns: DataTableColumn<Bond>[] = [
     title: 'Тикер',
     sortable: true,
     render: (bond) => (
-      <Anchor
-        component={Link}
-        to={`/bonds/${encodeURIComponent(bond.ticker)}`}
-        fw={500}
-        // строка тоже ведёт в карточку - без stopPropagation переход сработал бы дважды
-        onClick={(event) => event.stopPropagation()}
-      >
-        {bond.ticker}
-      </Anchor>
+      <Group gap={4} wrap="nowrap">
+        <Anchor
+          component={Link}
+          to={`/bonds/${encodeURIComponent(bond.ticker)}`}
+          fw={500}
+          // строка тоже ведёт в карточку - без stopPropagation переход сработал бы дважды
+          onClick={(event) => event.stopPropagation()}
+        >
+          {bond.ticker}
+        </Anchor>
+        <BondAlertsButton ticker={bond.ticker} name={bond.name} />
+      </Group>
     ),
   },
   { accessor: 'name', title: 'Название', sortable: true, render: (bond) => bond.name ?? '—' },

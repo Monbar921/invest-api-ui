@@ -21,6 +21,7 @@ import {
   isRubCurrency,
   plural,
 } from '../lib/format';
+import { BondAlertsButton } from '../components/BondAlertsButton';
 import { NotFoundPage } from './NotFoundPage';
 
 export function BondPage() {
@@ -56,7 +57,10 @@ function BondDetails({ bond }: { bond: Bond }) {
       <BackLink />
 
       <Stack gap="xs">
-        <Title order={2}>{bond.name ?? bond.ticker}</Title>
+        <Group gap="xs" wrap="nowrap">
+          <Title order={2}>{bond.name ?? bond.ticker}</Title>
+          <BondAlertsButton ticker={bond.ticker} name={bond.name} />
+        </Group>
         <Group gap="xs">
           <Badge variant="outline">{bond.ticker}</Badge>
           {bond.isin && bond.isin !== bond.ticker && (

@@ -53,6 +53,8 @@ const SIDE_REQUESTS: [RegExp, unknown][] = [
   ],
   [/\/api\/bonds\/(news|[^/]+\/news)\?/, EMPTY_NEWS_PAGE],
   [/\/api\/bonds\/[^/]+\/events$/, []],
+  // колокольчики уведомлений в таблице и карточке: все правила пользователя одним запросом
+  [/\/api\/alerts$/, []],
 ];
 
 const json = (body: unknown, status = 200) =>

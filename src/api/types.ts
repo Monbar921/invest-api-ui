@@ -281,3 +281,39 @@ export interface TelegramLink {
   url: string;
   expiresAt: string;
 }
+
+/** Правило по дате события облигации: предупредить за days дней */
+export type AlertType = 'COUPON_BEFORE' | 'AMORTIZATION_BEFORE' | 'OFFER_BEFORE' | 'MATURITY_BEFORE';
+
+/** Правило уведомления пользователя по облигации */
+export interface Alert {
+  id: number;
+  ticker: string;
+  /** null - облигации уже нет в системе */
+  bondName: string | null;
+  isin: string | null;
+  type: AlertType;
+  /** 1..60 */
+  days: number;
+  enabled: boolean;
+  createdAt: string;
+  /** Когда правило последний раз поставило уведомление в очередь */
+  lastTriggeredAt: string | null;
+}
+
+export type NotificationStatus = 'PENDING' | 'SENT' | 'FAILED';
+
+/** Уведомление из истории */
+export interface NotificationItem {
+  id: number;
+  /** null - правило удалено */
+  alertId: number | null;
+  ticker: string | null;
+  text: string;
+  status: NotificationStatus;
+  attempts: number;
+  createdAt: string;
+  sentAt: string | null;
+  /** Почему не отправлено; у PENDING - ошибка последней попытки */
+  lastError: string | null;
+}

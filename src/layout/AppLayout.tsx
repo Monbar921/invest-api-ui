@@ -10,7 +10,7 @@ import {
   useComputedColorScheme,
   useMantineColorScheme,
 } from '@mantine/core';
-import { IconCalculator, IconChartLine, IconLogout, IconMoon, IconSun } from '@tabler/icons-react';
+import { IconBell, IconCalculator, IconChartLine, IconLogout, IconMoon, IconSun } from '@tabler/icons-react';
 import type { ReactNode } from 'react';
 import { Link, NavLink, Outlet, useMatch } from 'react-router';
 import { logout } from '../api/client';
@@ -37,6 +37,7 @@ export function AppLayout() {
                 </Group>
               </Anchor>
               <NavButton to="/calculator" icon={<IconCalculator size={18} />} label="Калькулятор" />
+              <NavButton to="/alerts" icon={<IconBell size={18} />} label="Уведомления" />
             </Group>
             <Group gap="xs" wrap="nowrap">
               <TelegramConnect />

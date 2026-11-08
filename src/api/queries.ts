@@ -11,8 +11,9 @@ import {
   searchBonds,
 } from './bonds';
 import { ApiError } from './client';
+import { createAlert, deleteAlert, fetchAlerts, fetchNotifications, updateAlert } from './alerts';
 import { createTelegramLink, fetchTelegramStatus, unlinkTelegram } from './telegram';
-import type { BondParameters, BondScope, CandleInterval, NewsSource, Page, ProfitCalculationRequest } from './types';
+import type { AlertType, BondParameters, BondScope, CandleInterval, NewsSource, Page, ProfitCalculationRequest } from './types';
 
 export const bondKeys = {
   all: ['bonds'] as const,
@@ -162,4 +163,48 @@ export function useUnlinkTelegram() {
     mutationFn: unlinkTelegram,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: telegramKeys.status }),
   });
+}
+
+export const alertKeys = {
+  all: ['alerts'] as const,
+  list: () => [...alertKeys.all, 'list'] as const,
+  notifications: () => [...alertKeys.all, 'notifications'] as const,
+};
+
+/** Сколько уведомлений истории подгружать за раз */
+export const NOTIFICATIONS_PAGE_SIZE = 20;
+
+/**
+ * Все правила пользователя одним запросом: и колокольчики в таблице, и диалог облигации, и страница уведомлений
+ * берут их отсюда - таблица на 50 строк не делает 50 запросов.
+ */
+export function useAlerts() {
+  return useQuery({ queryKey: alertKeys.list(), queryFn: fetchAlerts });
+}
+
+export function useNotifications() {
+  return useInfiniteQuery({
+    queryKey: alertKeys.notifications(),
+    queryFn: ({ pageParam }) => fetchNotifications(pageParam, NOTIFICATIONS_PAGE_SIZE),
+    initialPageParam: 0,
+    getNextPageParam: nextNewsPage,
+  });
+}
+
+/** Создание, изменение и удаление правила; после - список правил и история перечитываются */
+export function useAlertMutations() {
+  const queryClient = useQueryClient();
+  // правило могло сразу поставить уведомление в очередь - история тоже меняется
+  const onSuccess = () => queryClient.invalidateQueries({ queryKey: alertKeys.all });
+  return {
+    create: useMutation({
+      mutationFn: ({ ticker, type, days }: { ticker: string; type: AlertType; days: number }) => createAlert(ticker, type, days),
+      onSuccess,
+    }),
+    update: useMutation({
+      mutationFn: ({ id, ...changes }: { id: number; days?: number; enabled?: boolean }) => updateAlert(id, changes),
+      onSuccess,
+    }),
+    remove: useMutation({ mutationFn: deleteAlert, onSuccess }),
+  };
 }

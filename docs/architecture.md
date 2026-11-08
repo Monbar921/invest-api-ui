@@ -16,10 +16,11 @@ TanStack Query - запросы и кэш, React Router - маршруты.
 | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `api/client.ts`                      | `fetch`-обёртка: same-origin cookie, CSRF-заголовок, 401 → логин, ошибки ProblemDetail                                                                                           |
 | `api/bonds.ts`                       | запросы к `/api/bonds/...`                                                                                                                                                       |
+| `api/alerts.ts`                      | запросы к `/api/alerts`: правила уведомлений, история                                                                                                                            |
 | `api/telegram.ts`                    | запросы к `/api/alerts/telegram`: статус, ссылка привязки, отвязка                                                                                                               |
 | `api/queries.ts`                     | хуки TanStack Query (`useBondsPage`, `useBond`)                                                                                                                                  |
 | `api/types.ts`                       | типы ответов, вручную повторяют DTO из `invest-api-dto`                                                                                                                          |
-| `pages/`                             | `BondsPage`, `BondPage`, `NotFoundPage`                                                                                                                                          |
+| `pages/`                             | `BondsPage`, `BondPage`, `AlertsPage`, `NotFoundPage`                                                                                                                            |
 | `components/`                        | таблица, фильтры, график выплат, бейдж риска, состояние ошибки; лента новостей (`NewsFeed`, `NewsList`, `MarketOverviewCard`), события и новости облигации (`BondEventsAndNews`) |
 | `layout/`                            | `AppLayout`: шапка, кнопка Telegram (`components/TelegramConnect`), тема, выход                                                                                                  |
 | `lib/`                               | состояние таблицы в URL (`bondSearchParams`), форматирование денег, дат, риска                                                                                                   |
@@ -27,6 +28,12 @@ TanStack Query - запросы и кэш, React Router - маршруты.
 
 ## Экраны
 
+- Колокольчик у тикера в таблице и рядом с названием в карточке: залит, если есть включённые уведомления; открывает
+  окно с переключателем и числом дней на каждый тип события (купон, частичное погашение, оферта, погашение).
+  Выключение не удаляет правило. Если Telegram не подключён - предупреждение. Все правила пользователя - одним
+  запросом на всю таблицу.
+- `/alerts` «Уведомления» (пункт в шапке): правила по облигациям карточками (удалить все по облигации) и история
+  отправленного со статусом и ошибкой, «Показать ещё».
 - Шапка: кнопка Telegram открывает панель уведомлений - статус (подключён ли, с какого времени, отвечает ли Telegram
   серверу), «Подключить Telegram» выдаёт одноразовую ссылку на бота на 10 минут (кнопки `tg://resolve` - сразу в приложение - и `t.me`, плюс код для отправки боту вручную, если Telegram потерял параметр `start`) и ждёт, пока в боте нажмут «Старт»
   (опрос раз в 3 секунды), «Отключить». Если бот выключен на сервере - только сообщение об этом.
@@ -52,20 +59,23 @@ TanStack Query - запросы и кэш, React Router - маршруты.
 
 ## API
 
-| Запрос                                                   | Что                                             |
-| -------------------------------------------------------- | ----------------------------------------------- |
-| `POST /api/bonds/{all\|local\|foreign}/page?page=&size=` | страница облигаций, в теле фильтры и сортировка |
-| `GET /api/bonds/{ticker}`                                | облигация с графиком выплат                     |
-| `GET /api/bonds/search?query=&limit=`                    | подсказки поиска облигации                      |
-| `POST /api/bonds/{ticker}/calculation`                   | доход за период для калькулятора                |
-| `GET /api/bonds/{ticker}/candles?interval=&from=`        | свечи для графика цены                          |
-| `GET /api/bonds/news?source=&page=&size=`                | лента новостей                                  |
-| `GET /api/bonds/market-overview`                         | ключевая ставка и курсы                         |
-| `GET /api/bonds/{ticker}/events`                         | события облигации                               |
-| `GET /api/bonds/{ticker}/news?page=&size=`               | новости облигации                               |
-| `GET /api/alerts/telegram`                               | статус Telegram пользователя                    |
-| `POST /api/alerts/telegram/link-token`                   | одноразовая ссылка привязки на 10 минут         |
-| `DELETE /api/alerts/telegram`                            | отвязать Telegram (`204`)                       |
+| Запрос                                                                | Что                                             |
+| --------------------------------------------------------------------- | ----------------------------------------------- |
+| `POST /api/bonds/{all\|local\|foreign}/page?page=&size=`              | страница облигаций, в теле фильтры и сортировка |
+| `GET /api/bonds/{ticker}`                                             | облигация с графиком выплат                     |
+| `GET /api/bonds/search?query=&limit=`                                 | подсказки поиска облигации                      |
+| `POST /api/bonds/{ticker}/calculation`                                | доход за период для калькулятора                |
+| `GET /api/bonds/{ticker}/candles?interval=&from=`                     | свечи для графика цены                          |
+| `GET /api/bonds/news?source=&page=&size=`                             | лента новостей                                  |
+| `GET /api/bonds/market-overview`                                      | ключевая ставка и курсы                         |
+| `GET /api/bonds/{ticker}/events`                                      | события облигации                               |
+| `GET /api/bonds/{ticker}/news?page=&size=`                            | новости облигации                               |
+| `GET /api/alerts/telegram`                                            | статус Telegram пользователя                    |
+| `POST /api/alerts/telegram/link-token`                                | одноразовая ссылка привязки на 10 минут         |
+| `GET /api/alerts`                                                     | все правила уведомлений пользователя            |
+| `POST /api/alerts`, `PUT /api/alerts/{id}`, `DELETE /api/alerts/{id}` | создать, изменить, удалить правило              |
+| `GET /api/alerts/notifications?page=&size=`                           | история уведомлений                             |
+| `DELETE /api/alerts/telegram`                                         | отвязать Telegram (`204`)                       |
 
 Пути относительные: UI и gateway на одном origin (в dev - через Vite proxy, на стенде - через ingress), иначе
 session cookie и `XSRF-TOKEN` не работают. `VITE_API_URL` нужен, только если API на другом адресе.
