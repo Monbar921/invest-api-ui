@@ -28,6 +28,9 @@ const overview = {
   keyRate: 16.5,
   keyRateSince: '2026-10-27',
   previousKeyRate: 17,
+  keyRateYearChange: -2,
+  keyRateMeetingDate: '2026-10-23',
+  keyRateMeetingChange: 0,
   currencies: [
     { code: 'USD', rate: 81.67, change: 0.7 },
     { code: 'EUR', rate: 91.6, change: -1.14 },
@@ -70,7 +73,9 @@ describe('NewsFeed', () => {
 
     expect(await screen.findByText('Ключевая ставка')).toBeInTheDocument();
     expect(screen.getByText(/16,5\s%/)).toBeInTheDocument();
-    expect(screen.getByText('−0,5 п.п.')).toBeInTheDocument();
+    expect(screen.getByText('−2 п.п. с начала года')).toBeInTheDocument();
+    // ставку сохранили - ноль без стрелки
+    expect(screen.getByText('0 п.п. на заседании 23.10.2026')).toBeInTheDocument();
     expect(screen.getByText('+0,7')).toBeInTheDocument();
     expect(screen.getByText('−1,14')).toBeInTheDocument();
   });

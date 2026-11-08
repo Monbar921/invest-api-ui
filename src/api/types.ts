@@ -230,6 +230,12 @@ export interface MarketOverview {
   /** YYYY-MM-DD - с какого дня действует ставка */
   keyRateSince: string | null;
   previousKeyRate: number | null;
+  /** Изменение с начала года, п.п. */
+  keyRateYearChange: number | null;
+  /** YYYY-MM-DD - последнее прошедшее заседание ЦБ по ставке */
+  keyRateMeetingDate: string | null;
+  /** Изменение по итогам последнего заседания, п.п.; 0 - ставку сохранили */
+  keyRateMeetingChange: number | null;
   currencies: CurrencyRate[] | null;
 }
 

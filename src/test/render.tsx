@@ -39,7 +39,18 @@ export const EMPTY_NEWS_PAGE = { content: [], page: 0, size: 20, totalElements: 
  * пустыми данными сам и не считает их в calls - иначе они съедали бы ответы, рассчитанные на основной запрос.
  */
 const SIDE_REQUESTS: [RegExp, unknown][] = [
-  [/\/api\/bonds\/market-overview$/, { keyRate: null, keyRateSince: null, previousKeyRate: null, currencies: [] }],
+  [
+    /\/api\/bonds\/market-overview$/,
+    {
+      keyRate: null,
+      keyRateSince: null,
+      previousKeyRate: null,
+      keyRateYearChange: null,
+      keyRateMeetingDate: null,
+      keyRateMeetingChange: null,
+      currencies: [],
+    },
+  ],
   [/\/api\/bonds\/(news|[^/]+\/news)\?/, EMPTY_NEWS_PAGE],
   [/\/api\/bonds\/[^/]+\/events$/, []],
 ];

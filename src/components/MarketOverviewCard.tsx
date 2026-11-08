@@ -15,7 +15,7 @@ export function MarketOverviewCard() {
     return null;
   }
 
-  const { keyRate, keyRateSince, previousKeyRate } = query.data;
+  const { keyRate, keyRateSince, previousKeyRate, keyRateYearChange, keyRateMeetingDate, keyRateMeetingChange } = query.data;
   const currencies = query.data.currencies ?? [];
 
   return (
@@ -25,11 +25,14 @@ export function MarketOverviewCard() {
           <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
             Ключевая ставка
           </Text>
-          <Group gap="xs" align="baseline">
-            <Text size="xl" fw={600}>
-              {formatPercent(keyRate)}
-            </Text>
-            {previousKeyRate != null && <Delta value={keyRate - previousKeyRate} suffix=" п.п." />}
+          <Text size="xl" fw={600}>
+            {formatPercent(keyRate)}
+          </Text>
+          <Group gap="md">
+            {keyRateYearChange != null && <Delta value={keyRateYearChange} suffix=" п.п. с начала года" />}
+            {keyRateMeetingChange != null && keyRateMeetingDate && (
+              <Delta value={keyRateMeetingChange} suffix={` п.п. на заседании ${formatDate(keyRateMeetingDate)}`} />
+            )}
           </Group>
           {keyRateSince && (
             <Text size="xs" c="dimmed">
