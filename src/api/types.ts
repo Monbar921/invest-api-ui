@@ -380,6 +380,8 @@ export interface PortfolioPosition {
    * null - цены или одного из курсов нет
    */
   revenueInRub: number | null;
+  /** Доходность к погашению, если купить сегодня по цене этой покупки (с сегодняшним НКД), % годовых */
+  yieldToMaturity: number | null;
   createdAt: string;
 }
 
@@ -423,14 +425,30 @@ export interface PortfolioGroup {
   buyAmountInRub: number | null;
   currentAmountInRub: number | null;
   revenueInRub: number | null;
+  /** Купон, % годовых от номинала */
+  couponRate: number | null;
+  /** Доходность к погашению по средней цене покупки (как если бы купить сегодня по ней), % годовых */
+  yieldToMaturity: number | null;
+  /** Доходность к погашению по текущей цене, % годовых */
+  currentYieldToMaturity: number | null;
   /** Покупки по дате */
   positions: PortfolioPosition[];
+}
+
+/** Весь портфель в рублях: сумма рублёвых сумм итогов по всем валютам */
+export interface PortfolioSummary {
+  buyAmountInRub: number;
+  currentAmountInRub: number;
+  revenueInRub: number;
+  revenuePercent: number | null;
 }
 
 export interface Portfolio {
   /** Строка на облигацию, по тикеру */
   groups: PortfolioGroup[];
   totals: PortfolioTotal[];
+  /** null - портфель пуст или у какой-то валюты нет курса */
+  summary: PortfolioSummary | null;
 }
 
 /** Покупка в портфель; при изменении тикер не используется */

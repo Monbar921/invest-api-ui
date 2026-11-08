@@ -1,6 +1,7 @@
 import {
   ActionIcon,
   Anchor,
+  Box,
   Button,
   Card,
   Group,
@@ -22,7 +23,7 @@ import { Link } from 'react-router';
 import { fetchBond } from '../api/bonds';
 import { MAX_BUY_PRICE, MAX_POSITION_QUANTITY } from '../api/portfolio';
 import { bondKeys, usePortfolio, usePortfolioMutations } from '../api/queries';
-import type { PortfolioGroup, PortfolioPosition, PortfolioPositionRequest, PortfolioTotal } from '../api/types';
+import type { PortfolioGroup, PortfolioPosition, PortfolioPositionRequest, PortfolioSummary, PortfolioTotal } from '../api/types';
 import { BondSearch } from '../components/BondSearch';
 import { BrokerSelect } from '../components/BrokerSelect';
 import { ErrorState } from '../components/ErrorState';
@@ -61,7 +62,7 @@ export function PortfolioPage() {
       )}
       {portfolio.data && groups.length > 0 && (
         <>
-          <Totals totals={portfolio.data.totals} />
+          <Totals totals={portfolio.data.totals} summary={portfolio.data.summary} />
           <PositionsTable
             groups={groups}
             onEdit={setEditing}
@@ -140,13 +141,33 @@ function signedPercent(value: number | null): string {
   return value == null ? '—' : `${formatChange(value)} %`;
 }
 
-/** Итоги по валютам: суммы в разных валютах не складываются */
-function Totals({ totals }: { totals: PortfolioTotal[] }) {
+/**
+ * Итоги: первым - весь портфель в рублях, дальше по валютам (суммы в разных валютах не складываются). Карточки
+ * «Всего» нет, если у какой-то валюты нет курса: без неё сумма выдавала бы себя за весь портфель.
+ */
+function Totals({ totals, summary }: { totals: PortfolioTotal[]; summary: PortfolioSummary | null }) {
   if (totals.length === 0) {
     return null;
   }
+  const cards = totals.length + (summary ? 1 : 0);
   return (
-    <SimpleGrid cols={{ base: 1, sm: Math.min(totals.length, 3) }}>
+    <SimpleGrid cols={{ base: 1, sm: Math.min(cards, 3) }}>
+      {summary && (
+        <Card withBorder padding="md">
+          <Text size="sm" c="dimmed">
+            Всего, в рублях
+          </Text>
+          <Text fw={600} size="xl">
+            {money(summary.currentAmountInRub, 'rub')}
+          </Text>
+          <Text size="xs" c="dimmed">
+            все валюты по сегодняшнему курсу
+          </Text>
+          <Text fw={500} c={revenueColor(summary.revenueInRub)} mt={4}>
+            {signedMoney(summary.revenueInRub, 'rub')} ({signedPercent(summary.revenuePercent)})
+          </Text>
+        </Card>
+      )}
       {totals.map((total) => (
         <Card key={total.currency} withBorder padding="md">
           <Text size="sm" c="dimmed">
@@ -177,7 +198,7 @@ function PositionsTable({
 }) {
   return (
     <Card withBorder padding={0}>
-      <Table.ScrollContainer minWidth={1050}>
+      <Table.ScrollContainer minWidth={1250}>
         <Table highlightOnHover verticalSpacing="sm">
           <Table.Thead>
             <Table.Tr>
@@ -191,6 +212,20 @@ function PositionsTable({
                 </Tooltip>
               </Table.Th>
               <Table.Th ta="right">Текущая цена</Table.Th>
+              <Table.Th ta="right">
+                <Tooltip label="Купон, % годовых от номинала">
+                  <span style={{ cursor: 'help' }}>Купон</span>
+                </Tooltip>
+              </Table.Th>
+              <Table.Th ta="right">
+                <Tooltip
+                  label="Доходность к погашению по цене покупки: как если бы купить сегодня по ней (с сегодняшним НКД). Ниже - по текущей цене"
+                  multiline
+                  w={300}
+                >
+                  <span style={{ cursor: 'help' }}>К погашению</span>
+                </Tooltip>
+              </Table.Th>
               <Table.Th ta="right">Стоимость</Table.Th>
               <Table.Th ta="right">Доход</Table.Th>
               <Table.Th ta="right">Доход, %</Table.Th>
@@ -233,9 +268,15 @@ function datesLabel(first: string, last: string): string {
   return first === last ? formatDate(first) : `${formatDate(first)} – ${formatDate(last)}`;
 }
 
+// ширина стрелки и кнопки действия: пустые места того же размера держат имена и кнопки ровными колонками
+const TOGGLE_WIDTH = 22;
+const ACTION_WIDTH = 28;
+const ACTION_GAP = 4;
+
 /**
- * Облигация одной строкой - всегда одинаково, сколько бы ни было покупок: свод с суммами и средней ценой, стрелка
- * раскрывает покупки (у каждой «изменить» / «удалить»), «+» - ещё покупка этой облигации.
+ * Облигация одной строкой. Одна покупка - строка и есть покупка: «изменить» / «удалить» прямо в ней, раскрывать
+ * нечего. Несколько - свод с суммами и средней ценой, стрелка раскрывает покупки. У всех строк «+» (ещё покупка этой
+ * облигации) на одном месте, а на месте стрелки и чужих кнопок - пустое место той же ширины: колонки ровные.
  */
 function GroupRows({
   group,
@@ -249,15 +290,20 @@ function GroupRows({
   const [expanded, setExpanded] = useState(false);
   const name = group.bondName ?? group.ticker;
   const toggleLabel = `${expanded ? 'Скрыть' : 'Показать'} покупки: ${name}`;
+  const single = group.positions.length === 1 ? group.positions[0]! : null;
 
   return (
     <>
       <Table.Tr>
         <Table.Td>
           <Group gap={6} wrap="nowrap" align="flex-start">
-            <ActionIcon variant="subtle" color="gray" size="sm" aria-label={toggleLabel} onClick={() => setExpanded((v) => !v)}>
-              {expanded ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
-            </ActionIcon>
+            {single ? (
+              <Box w={TOGGLE_WIDTH} style={{ flex: 'none' }} />
+            ) : (
+              <ActionIcon variant="subtle" color="gray" size="sm" aria-label={toggleLabel} onClick={() => setExpanded((v) => !v)}>
+                {expanded ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
+              </ActionIcon>
+            )}
             <div>
               {group.bondName ? (
                 <Anchor component={Link} to={`/bonds/${encodeURIComponent(group.ticker)}`} size="sm" fw={500}>
@@ -270,7 +316,8 @@ function GroupRows({
               )}
               <Text size="xs" c="dimmed">
                 {group.bondName ? group.ticker : 'облигации больше нет в списке торгуемых'}
-                {` · ${group.positions.length} ${plural(group.positions.length, 'покупка', 'покупки', 'покупок')}`}
+                {single == null &&
+                  ` · ${group.positions.length} ${plural(group.positions.length, 'покупка', 'покупки', 'покупок')}`}
               </Text>
             </div>
           </Group>
@@ -280,8 +327,20 @@ function GroupRows({
         </Table.Td>
         <Table.Td>{datesLabel(group.firstBuyDate, group.lastBuyDate)}</Table.Td>
         <Table.Td ta="right">{formatNumber(group.quantity)}</Table.Td>
-        <Table.Td ta="right">{formatPercent(group.buyPrice)}</Table.Td>
+        <Table.Td ta="right">
+          <Text size="sm">{formatPercent(group.buyPrice)}</Text>
+          {single && <PaidRubCaption position={single} />}
+        </Table.Td>
         <Table.Td ta="right">{formatPercent(group.currentPrice)}</Table.Td>
+        <Table.Td ta="right">{formatPercent(group.couponRate)}</Table.Td>
+        <Table.Td ta="right">
+          <Text size="sm">{formatPercent(group.yieldToMaturity)}</Text>
+          {group.currentYieldToMaturity != null && (
+            <Text size="xs" c="dimmed">
+              сейчас {formatPercent(group.currentYieldToMaturity)}
+            </Text>
+          )}
+        </Table.Td>
         <AmountCells
           currency={group.currency}
           currentAmount={group.currentAmount}
@@ -291,7 +350,8 @@ function GroupRows({
           revenuePercent={group.revenuePercent}
         />
         <Table.Td>
-          <Group gap={4} wrap="nowrap" justify="flex-end">
+          <Group gap={ACTION_GAP} wrap="nowrap" justify="flex-end">
+            {single ? <PositionActions position={single} onEdit={() => onEdit(single)} /> : <ActionSlots count={2} />}
             <Tooltip label="Ещё покупка этой облигации">
               <ActionIcon variant="subtle" color="gray" aria-label={`Добавить покупку: ${name}`} onClick={onAdd}>
                 <IconPlus size={16} />
@@ -300,7 +360,8 @@ function GroupRows({
           </Group>
         </Table.Td>
       </Table.Tr>
-      {expanded &&
+      {single == null &&
+        expanded &&
         group.positions.map((position) => (
           <Table.Tr key={position.id} bg="var(--mantine-color-default-hover)">
             <Table.Td pl={44}>
@@ -318,6 +379,8 @@ function GroupRows({
               <PaidRubCaption position={position} />
             </Table.Td>
             <Table.Td ta="right">{formatPercent(position.currentPrice)}</Table.Td>
+            <Table.Td />
+            <Table.Td ta="right">{formatPercent(position.yieldToMaturity)}</Table.Td>
             <AmountCells
               currency={position.currency}
               currentAmount={position.currentAmount}
@@ -327,12 +390,20 @@ function GroupRows({
               revenuePercent={position.revenuePercent}
             />
             <Table.Td>
-              <PositionActions position={position} onEdit={() => onEdit(position)} />
+              <Group gap={ACTION_GAP} wrap="nowrap" justify="flex-end">
+                <PositionActions position={position} onEdit={() => onEdit(position)} />
+                <ActionSlots count={1} />
+              </Group>
             </Table.Td>
           </Table.Tr>
         ))}
     </>
   );
+}
+
+/** Пустое место вместо кнопок действий - чтобы кнопки соседних строк стояли одна под другой */
+function ActionSlots({ count }: { count: number }) {
+  return <Box w={count * ACTION_WIDTH + (count - 1) * ACTION_GAP} style={{ flex: 'none' }} />;
 }
 
 /** Сколько рублей заплачено, если пользователь это указал - видно, откуда рублёвый доход */
@@ -390,7 +461,7 @@ function PositionActions({ position, onEdit }: { position: PortfolioPosition; on
   const label = `${name} от ${formatDate(position.buyDate)}`;
 
   return (
-    <Group gap={4} wrap="nowrap" justify="flex-end">
+    <Group gap={ACTION_GAP} wrap="nowrap" justify="flex-end">
       <Tooltip label="Изменить">
         <ActionIcon variant="subtle" color="gray" aria-label={`Изменить покупку: ${label}`} onClick={onEdit}>
           <IconPencil size={16} />

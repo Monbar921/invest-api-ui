@@ -24,6 +24,7 @@ const position = (overrides: Partial<PortfolioPosition>): PortfolioPosition => (
   buyAmountInRub: 9850,
   currentAmountInRub: 10050,
   revenueInRub: 200,
+  yieldToMaturity: 19.4,
   createdAt: '2026-11-08T10:00:00Z',
   ...overrides,
 });
@@ -53,6 +54,9 @@ function group(positions: PortfolioPosition[], overrides: Partial<PortfolioGroup
     buyAmountInRub: sum((p) => p.buyAmountInRub),
     currentAmountInRub: sum((p) => p.currentAmountInRub),
     revenueInRub: sum((p) => p.revenueInRub),
+    couponRate: 18.59,
+    yieldToMaturity: first.yieldToMaturity,
+    currentYieldToMaturity: 18.2,
     positions,
     ...overrides,
   };
@@ -86,9 +90,10 @@ const portfolio: Portfolio = {
       revenueInRub: 20,
     },
   ],
+  summary: null,
 };
 
-const EMPTY: Portfolio = { groups: [], totals: [] };
+const EMPTY: Portfolio = { groups: [], totals: [], summary: null };
 
 /** ТМК: две покупки у разных брокеров - одна строка */
 const tmkFirst = position({
@@ -201,6 +206,31 @@ describe('PortfolioPage', () => {
     expect(screen.getByText(byText('+20,00 ₽ (+0,18 %)'))).toBeInTheDocument();
   });
 
+  it('весь портфель в рублях, купон и доходность к погашению по цене покупки', async () => {
+    mockApi({
+      ...portfolio,
+      summary: { buyAmountInRub: 600000, currentAmountInRub: 612345.67, revenueInRub: 12345.67, revenuePercent: 2.06 },
+    });
+    renderPage();
+
+    expect(await screen.findByText('Всего, в рублях')).toBeInTheDocument();
+    expect(screen.getByText(byText('612 345,67 ₽'))).toBeInTheDocument();
+    expect(screen.getByText(byText('+12 345,67 ₽ (+2,06 %)'))).toBeInTheDocument();
+
+    const row = screen.getByText('Авто Финанс Банк БО-001Р-18').closest('tr')!;
+    expect(within(row).getByText('18,59 %')).toBeInTheDocument();
+    expect(within(row).getByText('19,4 %')).toBeInTheDocument();
+    expect(within(row).getByText('сейчас 18,2 %')).toBeInTheDocument();
+  });
+
+  it('без курса у какой-то валюты карточки «Всего» нет', async () => {
+    mockApi({ ...portfolio, summary: null });
+    renderPage();
+
+    expect(await screen.findByText('Авто Финанс Банк БО-001Р-18')).toBeInTheDocument();
+    expect(screen.queryByText('Всего, в рублях')).not.toBeInTheDocument();
+  });
+
   it('пустой портфель', async () => {
     mockApi(EMPTY);
     renderPage();
@@ -209,7 +239,7 @@ describe('PortfolioPage', () => {
   });
 
   it('покупки одной облигации - одной строкой, раскрываются по клику', async () => {
-    mockApi({ groups: [tmk], totals: [] });
+    mockApi({ groups: [tmk], totals: [], summary: null });
     renderPage();
 
     const row = (await screen.findByText('ТМК ЗО-2027')).closest('tr')!;
@@ -229,23 +259,21 @@ describe('PortfolioPage', () => {
     expect(screen.getByText(byText('77 500,00 ₽'))).toBeInTheDocument();
   });
 
-  it('строка облигации с одной покупкой - такая же, как с несколькими', async () => {
+  it('строка облигации с одной покупкой - сама покупка, раскрывать нечего', async () => {
     mockApi();
     renderPage();
 
     const row = (await screen.findByText('ОФЗ 26238')).closest('tr')!;
-    expect(within(row).getByText(/1 покупка/)).toBeInTheDocument();
-    expect(within(row).getByRole('button', { name: 'Показать покупки: ОФЗ 26238' })).toBeInTheDocument();
+    expect(within(row).getByRole('button', { name: 'Изменить покупку: ОФЗ 26238 от 15.01.2026' })).toBeInTheDocument();
+    expect(within(row).getByRole('button', { name: 'Удалить покупку: ОФЗ 26238 от 15.01.2026' })).toBeInTheDocument();
     expect(within(row).getByRole('button', { name: 'Добавить покупку: ОФЗ 26238' })).toBeInTheDocument();
-    // изменить и удалить - только у раскрытых покупок
-    expect(within(row).queryByRole('button', { name: /Изменить покупку/ })).not.toBeInTheDocument();
-
-    await expand('ОФЗ 26238');
-    expect(screen.getByRole('button', { name: 'Изменить покупку: ОФЗ 26238 от 15.01.2026' })).toBeInTheDocument();
+    // стрелки нет - не будет второй строки с той же покупкой
+    expect(within(row).queryByRole('button', { name: /Показать покупки/ })).not.toBeInTheDocument();
+    expect(within(row).queryByText(/покупк/)).not.toBeInTheDocument();
   });
 
   it('«+» в строке облигации открывает покупку этой облигации', async () => {
-    const calls = mockApi({ groups: [tmk], totals: [] });
+    const calls = mockApi({ groups: [tmk], totals: [], summary: null });
     renderPage();
 
     await userEvent.click(await screen.findByRole('button', { name: 'Добавить покупку: ТМК ЗО-2027' }));
@@ -282,7 +310,7 @@ describe('PortfolioPage', () => {
   });
 
   it('у валютной покупки можно указать, сколько заплачено в рублях', async () => {
-    const calls = mockApi({ groups: [tmk], totals: [] });
+    const calls = mockApi({ groups: [tmk], totals: [], summary: null });
     renderPage();
 
     await expand('ТМК ЗО-2027');
@@ -296,7 +324,7 @@ describe('PortfolioPage', () => {
   });
 
   it('запятая и точка в дробной части не стирают набранное', async () => {
-    const calls = mockApi({ groups: [tmk], totals: [] });
+    const calls = mockApi({ groups: [tmk], totals: [], summary: null });
     renderPage();
 
     await expand('ТМК ЗО-2027');
@@ -337,8 +365,7 @@ describe('PortfolioPage', () => {
     const calls = mockApi();
     renderPage();
 
-    await expand('ОФЗ 26238');
-    await userEvent.click(screen.getByRole('button', { name: 'Изменить покупку: ОФЗ 26238 от 15.01.2026' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Изменить покупку: ОФЗ 26238 от 15.01.2026' }));
     const dialog = await screen.findByRole('dialog');
     const quantity = within(dialog).getByLabelText('Количество, шт.');
     await userEvent.clear(quantity);
@@ -367,6 +394,7 @@ describe('PortfolioPage', () => {
           revenueInRub: 51.16,
         },
       ],
+      summary: null,
     });
     renderPage();
 
@@ -394,8 +422,7 @@ describe('PortfolioPage', () => {
     const calls = mockApi();
     renderPage();
 
-    await expand('ОФЗ 26238');
-    await userEvent.click(screen.getByRole('button', { name: 'Изменить покупку: ОФЗ 26238 от 15.01.2026' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Изменить покупку: ОФЗ 26238 от 15.01.2026' }));
     const dialog = await screen.findByRole('dialog');
     await userEvent.click(within(dialog).getByLabelText('Брокер'));
     await userEvent.click(await screen.findByText('Альфа'));
@@ -409,8 +436,7 @@ describe('PortfolioPage', () => {
     const calls = mockApi();
     renderPage();
 
-    await expand('ОФЗ 26238');
-    await userEvent.click(screen.getByRole('button', { name: 'Изменить покупку: ОФЗ 26238 от 15.01.2026' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Изменить покупку: ОФЗ 26238 от 15.01.2026' }));
     const dialog = await screen.findByRole('dialog');
     await userEvent.type(within(dialog).getByLabelText('Брокер'), 'Финам');
     await userEvent.click(await screen.findByText('+ Добавить «Финам»'));
@@ -424,8 +450,7 @@ describe('PortfolioPage', () => {
     const calls = mockApi();
     renderPage();
 
-    await expand('ОФЗ 26238');
-    await userEvent.click(screen.getByRole('button', { name: 'Удалить покупку: ОФЗ 26238 от 15.01.2026' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Удалить покупку: ОФЗ 26238 от 15.01.2026' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Удалить' }));
 
     await waitFor(() =>
