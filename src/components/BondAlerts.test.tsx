@@ -66,7 +66,7 @@ function mockAlertsApi({ alerts = [] as Alert[], telegramStatus = telegram, hist
       return json({ content: history, page: 0, size: 20, totalElements: history.length, totalPages: 1 });
     }
     if (url.endsWith('/api/alerts') && method === 'POST') {
-      const created = alert({ id: 100 + current.length, ...body });
+      const created = alert({ id: 100 + current.length, ticker: body.ticker ?? null, ...body });
       current = [...current, created];
       return json(created, 201);
     }
@@ -183,7 +183,55 @@ describe('BondAlertsButton: цена и доходность', () => {
   });
 });
 
+describe('BondAlertsButton: события и новости', () => {
+  it('включает новости и рейтинги облигации без параметров', async () => {
+    const calls = mockAlertsApi();
+    renderRoute(<BondAlertsButton ticker={TICKER} name={null} />, { path: '/bonds', url: '/bonds' });
+
+    await userEvent.click(await screen.findByRole('button', { name: `Уведомления: ${TICKER}` }));
+    await userEvent.click(await screen.findByRole('switch', { name: 'Новости' }));
+    await userEvent.click(screen.getByRole('switch', { name: 'Рейтинги эмитента' }));
+    await userEvent.click(screen.getByRole('switch', { name: 'Объявлен купон' }));
+
+    await waitFor(() =>
+      expect(calls.filter((call) => call.method === 'POST').map((call) => call.body)).toEqual([
+        { ticker: TICKER, type: 'BOND_NEWS' },
+        { ticker: TICKER, type: 'ISSUER_RATING' },
+        { ticker: TICKER, type: 'FLOATER_COUPON' },
+      ]),
+    );
+  });
+
+  it('выключает правило по событию, не удаляя его', async () => {
+    const calls = mockAlertsApi({ alerts: [alert({ id: 9, type: 'BOND_NEWS', days: null })] });
+    renderRoute(<BondAlertsButton ticker={TICKER} name={null} />, { path: '/bonds', url: '/bonds' });
+
+    await userEvent.click(await screen.findByRole('button', { name: `Уведомления включены: ${TICKER}` }));
+    await userEvent.click(await screen.findByRole('switch', { name: 'Новости' }));
+
+    await waitFor(() =>
+      expect(calls.find((call) => call.method === 'PUT')).toEqual({
+        method: 'PUT',
+        url: '/api/alerts/9',
+        body: { enabled: false },
+      }),
+    );
+  });
+});
+
 describe('AlertsPage', () => {
+  it('включает решения ЦБ по ключевой ставке без облигации', async () => {
+    const calls = mockAlertsApi({ alerts: [alert()] });
+    renderRoute(<AlertsPage />, { path: '/alerts', url: '/alerts' });
+
+    await userEvent.click(await screen.findByRole('switch', { name: 'Решения Банка России по ключевой ставке' }));
+
+    await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toEqual({ type: 'KEY_RATE' }));
+    // правило без облигации не появляется карточкой облигации
+    expect(await screen.findByRole('switch', { name: 'Решения Банка России по ключевой ставке' })).toBeChecked();
+    expect(screen.getAllByRole('link', { name: 'Авто Финанс Банк БО-001Р-18' })).toHaveLength(1);
+  });
+
   it('показывает правила по облигациям и историю', async () => {
     mockAlertsApi({
       alerts: [alert(), alert({ id: 2, type: 'MATURITY_BEFORE', days: 30, enabled: false })],

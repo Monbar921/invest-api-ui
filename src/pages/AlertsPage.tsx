@@ -3,9 +3,9 @@ import { IconTrash } from '@tabler/icons-react';
 import { Link } from 'react-router';
 import { useAlertMutations, useAlerts, useNotifications } from '../api/queries';
 import type { Alert } from '../api/types';
-import { BondAlertsPanel, TelegramRequiredHint } from '../components/BondAlertsPanel';
+import { BondAlertsPanel, EventSwitch, TelegramRequiredHint } from '../components/BondAlertsPanel';
 import { ErrorState } from '../components/ErrorState';
-import { NOTIFICATION_STATUSES } from '../lib/alerts';
+import { KEY_RATE_ALERT, NOTIFICATION_STATUSES } from '../lib/alerts';
 import { formatDateTime } from '../lib/format';
 
 /** «Уведомления»: правила по облигациям и история отправленного */
@@ -14,9 +14,29 @@ export function AlertsPage() {
     <Stack gap="lg">
       <Title order={2}>Уведомления</Title>
       <TelegramRequiredHint />
+      <CentralBankCard />
       <AlertsByBond />
       <History />
     </Stack>
+  );
+}
+
+/** Правила без облигации: решения ЦБ по ключевой ставке */
+function CentralBankCard() {
+  const alerts = useAlerts();
+  const { create } = useAlertMutations();
+  return (
+    <Card withBorder padding="md">
+      <Stack gap="xs">
+        <Text fw={500}>Банк России</Text>
+        <EventSwitch
+          label={KEY_RATE_ALERT.label}
+          hint={KEY_RATE_ALERT.hint}
+          alert={alerts.data?.find((alert) => alert.type === 'KEY_RATE')}
+          onCreate={() => create.mutate({ type: 'KEY_RATE' })}
+        />
+      </Stack>
+    </Card>
   );
 }
 
@@ -29,13 +49,17 @@ function AlertsByBond() {
   if (alerts.isError) {
     return <ErrorState error={alerts.error} onRetry={() => void alerts.refetch()} />;
   }
-  if (alerts.data.length === 0) {
+  if (alerts.data.every((alert) => alert.ticker == null)) {
     return <Text c="dimmed">Уведомлений пока нет. Включите их колокольчиком у облигации в таблице или в её карточке.</Text>;
   }
 
   // по облигации - в порядке тикеров, как отдаёт бэк
   const bonds = new Map<string, Alert[]>();
   for (const alert of alerts.data) {
+    // правило без облигации (ключевая ставка) - в карточке «Банк России»
+    if (alert.ticker == null) {
+      continue;
+    }
     bonds.set(alert.ticker, [...(bonds.get(alert.ticker) ?? []), alert]);
   }
 

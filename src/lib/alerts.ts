@@ -1,4 +1,12 @@
-import type { Alert, AlertDirection, AlertType, DateAlertType, NotificationStatus, PriceAlertType } from '../api/types';
+import type {
+  Alert,
+  AlertDirection,
+  AlertType,
+  DateAlertType,
+  EventAlertType,
+  NotificationStatus,
+  PriceAlertType,
+} from '../api/types';
 
 /** Правила по датам в порядке показа: подпись, подсказка и сколько дней предлагать по умолчанию */
 export const ALERT_TYPES: { type: DateAlertType; label: string; hint: string; defaultDays: number }[] = [
@@ -86,13 +94,37 @@ export const PRICE_ALERT_TYPES: {
   },
 ];
 
+/** Правила по событиям облигации - включаются переключателем, без параметров. Ключевая ставка - на странице уведомлений */
+export const EVENT_ALERT_TYPES: { type: EventAlertType; label: string; hint: string }[] = [
+  { type: 'FLOATER_COUPON', label: 'Объявлен купон', hint: 'размер следующего купона, для плавающего купона' },
+  { type: 'BOND_NEWS', label: 'Новости', hint: 'по выпуску и эмитенту: биржа, ЦБ, рейтинги, СМИ' },
+  { type: 'ISSUER_RATING', label: 'Рейтинги эмитента', hint: 'действия АКРА и НКР' },
+];
+
+export const KEY_RATE_ALERT = {
+  type: 'KEY_RATE' as const,
+  label: 'Решения Банка России по ключевой ставке',
+  hint: 'пресс-релиз в день заседания',
+};
+
+export function isPriceAlert(type: AlertType): type is PriceAlertType {
+  return PRICE_ALERT_TYPES.some((item) => item.type === type);
+}
+
+export function isEventAlert(type: AlertType): type is EventAlertType {
+  return EVENT_ALERT_TYPES.some((item) => item.type === type) || type === 'KEY_RATE';
+}
+
 export function isDateAlert(type: AlertType): type is DateAlertType {
   return ALERT_TYPES.some((item) => item.type === type);
 }
 
 export function alertTypeLabel(type: AlertType): string {
   return (
-    ALERT_TYPES.find((item) => item.type === type)?.label ?? PRICE_ALERT_TYPES.find((item) => item.type === type)?.label ?? type
+    ALERT_TYPES.find((item) => item.type === type)?.label ??
+    PRICE_ALERT_TYPES.find((item) => item.type === type)?.label ??
+    EVENT_ALERT_TYPES.find((item) => item.type === type)?.label ??
+    (type === 'KEY_RATE' ? KEY_RATE_ALERT.label : type)
   );
 }
 

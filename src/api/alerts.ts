@@ -13,7 +13,8 @@ export function fetchAlerts(): Promise<Alert[]> {
 
 /** Новое правило: по дате - days, по цене и доходности - direction и threshold */
 export interface AlertRule {
-  ticker: string;
+  /** Не задаётся только у KEY_RATE */
+  ticker?: string;
   type: AlertType;
   days?: number;
   direction?: AlertDirection;

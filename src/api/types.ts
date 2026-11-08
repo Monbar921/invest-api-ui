@@ -291,7 +291,10 @@ export type DateAlertType = 'COUPON_BEFORE' | 'AMORTIZATION_BEFORE' | 'OFFER_BEF
  */
 export type PriceAlertType = 'PRICE_LEVEL' | 'PRICE_CHANGE' | 'PRICE_DAILY_CHANGE' | 'YTM_LEVEL' | 'YTO_LEVEL';
 
-export type AlertType = DateAlertType | PriceAlertType;
+/** Правило по событию: объявлен купон, новости облигации, рейтинги эмитента, решения по ключевой ставке */
+export type EventAlertType = 'FLOATER_COUPON' | 'BOND_NEWS' | 'ISSUER_RATING' | 'KEY_RATE';
+
+export type AlertType = DateAlertType | PriceAlertType | EventAlertType;
 
 /** UP - выросло до уровня или на порог, DOWN - снизилось, ANY - в любую сторону (только изменения цены) */
 export type AlertDirection = 'UP' | 'DOWN' | 'ANY';
@@ -299,7 +302,8 @@ export type AlertDirection = 'UP' | 'DOWN' | 'ANY';
 /** Правило уведомления пользователя по облигации */
 export interface Alert {
   id: number;
-  ticker: string;
+  /** null - правило без облигации (KEY_RATE) */
+  ticker: string | null;
   /** null - облигации уже нет в системе */
   bondName: string | null;
   isin: string | null;

@@ -16,7 +16,7 @@ import { useState } from 'react';
 import { MAX_ALERT_DAYS } from '../api/alerts';
 import { useAlertMutations, useAlerts, useBond, useTelegramStatus } from '../api/queries';
 import type { Alert, AlertDirection, AlertType, PriceAlertType } from '../api/types';
-import { ALERT_TYPES, describePriceAlert, isDateAlert, PRICE_ALERT_TYPES } from '../lib/alerts';
+import { ALERT_TYPES, describePriceAlert, EVENT_ALERT_TYPES, isDateAlert, isPriceAlert, PRICE_ALERT_TYPES } from '../lib/alerts';
 import { formatPercent, plural } from '../lib/format';
 import { DebouncedNumberInput } from './DebouncedNumberInput';
 
@@ -79,7 +79,21 @@ export function BondAlertsPanel({ ticker }: { ticker: string }) {
         </Text>
       )}
       <Divider />
-      <PriceAlerts ticker={ticker} alerts={bondAlerts.filter((alert) => !isDateAlert(alert.type))} />
+      <Divider />
+      <Text size="sm" fw={600}>
+        События и новости
+      </Text>
+      {EVENT_ALERT_TYPES.map((item) => (
+        <EventSwitch
+          key={item.type}
+          label={item.label}
+          hint={item.hint}
+          alert={bondAlerts.find((alert) => alert.type === item.type)}
+          onCreate={() => create.mutate({ ticker, type: item.type })}
+        />
+      ))}
+      <Divider />
+      <PriceAlerts ticker={ticker} alerts={bondAlerts.filter((alert) => isPriceAlert(alert.type))} />
     </Stack>
   );
 }
@@ -189,6 +203,39 @@ function PriceAlerts({ ticker, alerts }: { ticker: string; alerts: Alert[] }) {
         </Text>
       )}
     </Stack>
+  );
+}
+
+/**
+ * Правило по событию без параметров: включить - создать (или включить заново), выключить - выключить, не удалить.
+ * Уведомляет только о новом - о том, что появится после включения.
+ */
+export function EventSwitch({
+  label,
+  hint,
+  alert,
+  onCreate,
+}: {
+  label: string;
+  hint: string;
+  alert: Alert | undefined;
+  onCreate: () => void;
+}) {
+  const { update } = useAlertMutations();
+  return (
+    <Switch
+      checked={alert?.enabled ?? false}
+      onChange={(event) => {
+        if (alert) {
+          update.mutate({ id: alert.id, enabled: event.currentTarget.checked });
+        } else if (event.currentTarget.checked) {
+          onCreate();
+        }
+      }}
+      label={label}
+      description={hint}
+      aria-label={label}
+    />
   );
 }
 
