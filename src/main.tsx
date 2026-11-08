@@ -6,8 +6,20 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+declare global {
+  interface Window {
+    /** Проверка сессии из index.html: false - уже уходим на логин, приложение не рисуем */
+    investSessionCheck?: Promise<boolean>;
+  }
+}
+
+void (window.investSessionCheck ?? Promise.resolve(true)).then((authorized) => {
+  if (!authorized) {
+    return;
+  }
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  );
+});

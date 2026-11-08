@@ -2,7 +2,10 @@
 // session cookie и XSRF-TOKEN gateway работают только для same-origin запросов
 const API_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 
-/** Старт OAuth2-логина на gateway: он перекинет на Keycloak и после входа вернёт на главную */
+/**
+ * Старт OAuth2-логина на gateway: он перекинет на Keycloak и после входа вернёт на главную.
+ * Тот же путь - в проверке сессии в index.html: без сессии туда уходят ещё до загрузки приложения.
+ */
 export const LOGIN_PATH = '/oauth2/authorization/keycloak';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);

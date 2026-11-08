@@ -5,6 +5,30 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Облигации</title>
+    <script>
+      // Проверка сессии до загрузки приложения: без неё браузер сначала грузил весь бандл и рисовал страницу,
+      // и только 401 от её запросов уводил на логин - несколько секунд пользователь видел пустое приложение.
+      // Скрипт обычный (не модуль) и выполняется сразу, бандл грузится параллельно; main.tsx ждёт результат.
+      // Самый дешёвый запрос через gateway: без сессии gateway отвечает 401 сам, с сессией - пустой список подсказок.
+      // Путь логина повторяет LOGIN_PATH из src/api/client.ts.
+      window.investSessionCheck = fetch('/api/bonds/search?query=&limit=1', {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      }).then(
+        function (response) {
+          if (response.status === 401) {
+            // replace: страница без сессии не остаётся в истории, «Назад» с логина не вернёт на неё
+            window.location.replace('/oauth2/authorization/keycloak');
+            return false;
+          }
+          return true;
+        },
+        // сеть или gateway недоступны - приложение покажет ошибку своих запросов
+        function () {
+          return true;
+        },
+      );
+    </script>
   </head>
   <body>
     <div id="root"></div>
