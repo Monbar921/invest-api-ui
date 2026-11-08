@@ -44,11 +44,12 @@ export function BondsPage() {
 
   return (
     // лента слева; на узком экране она уходит под таблицу - облигации остаются первыми
-    <Grid gap="md">
-      <Grid.Col span={{ base: 12, lg: 3 }} order={{ base: 2, lg: 1 }}>
+    // 24 колонки: ленте - меньше четверти ширины, на широком экране ещё уже
+    <Grid gap="md" columns={24}>
+      <Grid.Col span={{ base: 24, lg: 7, xl: 6 }} order={{ base: 2, lg: 1 }}>
         <NewsFeed />
       </Grid.Col>
-      <Grid.Col span={{ base: 12, lg: 9 }} order={{ base: 1, lg: 2 }}>
+      <Grid.Col span={{ base: 24, lg: 17, xl: 18 }} order={{ base: 1, lg: 2 }}>
         <BondsList
           state={state}
           query={query}

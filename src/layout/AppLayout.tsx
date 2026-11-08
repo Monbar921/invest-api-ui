@@ -12,14 +12,19 @@ import {
 } from '@mantine/core';
 import { IconCalculator, IconChartLine, IconLogout, IconMoon, IconSun } from '@tabler/icons-react';
 import type { ReactNode } from 'react';
-import { Link, NavLink, Outlet } from 'react-router';
+import { Link, NavLink, Outlet, useMatch } from 'react-router';
 import { logout } from '../api/client';
 
+// у списка облигаций слева лента новостей - таблице нужна ширина больше стандартного контейнера
+const WIDE_PAGE_WIDTH = 1920;
+
 export function AppLayout() {
+  const wide = useMatch('/bonds') != null;
+
   return (
     <AppShell header={{ height: 56 }} padding="md">
       <AppShell.Header>
-        <Container size="xl" h="100%">
+        <Container size={wide ? WIDE_PAGE_WIDTH : 'xl'} h="100%">
           <Group h="100%" justify="space-between" wrap="nowrap">
             <Group gap="lg" wrap="nowrap">
               <Anchor component={Link} to="/bonds" underline="never" c="inherit">
@@ -41,7 +46,7 @@ export function AppLayout() {
       </AppShell.Header>
 
       <AppShell.Main>
-        <Container size="xl" px={0}>
+        <Container size={wide ? WIDE_PAGE_WIDTH : 'xl'} px={0}>
           <Outlet />
         </Container>
       </AppShell.Main>

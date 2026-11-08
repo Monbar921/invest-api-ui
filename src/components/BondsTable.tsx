@@ -106,7 +106,15 @@ const columns: DataTableColumn<Bond>[] = [
     textAlign: 'right',
     render: (bond) => <OfferYieldCell bond={bond} />,
   },
-  { accessor: 'riskLevel', title: 'Риск', sortable: true, render: (bond) => <RiskBadge level={bond.riskLevel} /> },
+  {
+    accessor: 'riskLevel',
+    title: 'Риск',
+    sortable: true,
+    // ширина под «Средний»: без неё узкая колонка обрезала бейдж до «СР…»
+    width: 120,
+    noWrap: true,
+    render: (bond) => <RiskBadge level={bond.riskLevel} />,
+  },
   {
     accessor: 'maturityDate',
     title: 'Погашение',
