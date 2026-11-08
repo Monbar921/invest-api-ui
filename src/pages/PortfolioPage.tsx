@@ -16,53 +16,76 @@ import {
   Title,
   Tooltip,
 } from '@mantine/core';
-import { IconPencil, IconPlus, IconTrash } from '@tabler/icons-react';
+import { IconChevronDown, IconChevronRight, IconPencil, IconPlus, IconTrash } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { fetchBond } from '../api/bonds';
 import { MAX_BUY_PRICE, MAX_POSITION_QUANTITY } from '../api/portfolio';
 import { bondKeys, usePortfolio, usePortfolioMutations } from '../api/queries';
-import type { PortfolioPosition, PortfolioTotal } from '../api/types';
+import type { PortfolioGroup, PortfolioPosition, PortfolioPositionRequest, PortfolioTotal } from '../api/types';
 import { BondSearch } from '../components/BondSearch';
 import { BrokerSelect } from '../components/BrokerSelect';
 import { ErrorState } from '../components/ErrorState';
 import { isIsoDate, todayIso } from '../lib/dates';
-import { formatChange, formatDate, formatMoney, formatNumber, formatPercent, isRubCurrency } from '../lib/format';
+import { formatChange, formatDate, formatMoney, formatNumber, formatPercent, isRubCurrency, plural } from '../lib/format';
 
-/** «Портфель»: покупки облигаций, их текущая стоимость и доход от цены покупки */
+/** Облигация, выбранная заранее: «+» в строке облигации открывает новую покупку уже с ней */
+interface PresetBond {
+  ticker: string;
+  name: string | null;
+  currency: string | null;
+  currentPrice: number | null;
+}
+
+/** «Портфель»: покупки облигаций - строкой на облигацию, их текущая стоимость и доход от цены покупки */
 export function PortfolioPage() {
   const portfolio = usePortfolio();
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState<{ bond?: PresetBond } | null>(null);
   const [editing, setEditing] = useState<PortfolioPosition | null>(null);
+  const groups = portfolio.data?.groups ?? [];
 
   return (
     <Stack gap="lg">
       <Group justify="space-between">
         <Title order={2}>Портфель</Title>
-        <Button leftSection={<IconPlus size={16} />} onClick={() => setAdding(true)}>
+        <Button leftSection={<IconPlus size={16} />} onClick={() => setAdding({})}>
           Добавить покупку
         </Button>
       </Group>
 
       {portfolio.isPending && <Loader size="sm" />}
       {portfolio.isError && <ErrorState error={portfolio.error} onRetry={() => void portfolio.refetch()} />}
-      {portfolio.data && portfolio.data.positions.length === 0 && (
+      {portfolio.data && groups.length === 0 && (
         <Text c="dimmed">В портфеле пока ничего нет. Добавьте покупку: облигацию, количество, цену и дату.</Text>
       )}
-      {portfolio.data && portfolio.data.positions.length > 0 && (
+      {portfolio.data && groups.length > 0 && (
         <>
           <Totals totals={portfolio.data.totals} />
-          <PositionsTable positions={portfolio.data.positions} onEdit={setEditing} />
+          <PositionsTable
+            groups={groups}
+            onEdit={setEditing}
+            onAdd={(group) =>
+              setAdding({
+                bond: {
+                  ticker: group.ticker,
+                  name: group.bondName,
+                  currency: group.currency,
+                  currentPrice: group.currentPrice,
+                },
+              })
+            }
+          />
           <Text size="xs" c="dimmed">
             Доход - только от изменения цены: (текущая цена − цена покупки) × номинал × количество. Купоны, НКД и комиссии не
-            учитываются.
+            учитываются. Доход в рублях - от суммы, заплаченной в рублях (не указана - по курсу ЦБ на дату покупки), до стоимости
+            по сегодняшнему курсу.
           </Text>
         </>
       )}
 
-      <Modal opened={adding} onClose={() => setAdding(false)} title="Новая покупка">
-        {adding && <PositionForm onDone={() => setAdding(false)} />}
+      <Modal opened={adding != null} onClose={() => setAdding(null)} title="Новая покупка">
+        {adding && <PositionForm preset={adding.bond} onDone={() => setAdding(null)} />}
       </Modal>
       <Modal
         opened={editing != null}
@@ -144,16 +167,18 @@ function Totals({ totals }: { totals: PortfolioTotal[] }) {
 }
 
 function PositionsTable({
-  positions,
+  groups,
   onEdit,
+  onAdd,
 }: {
-  positions: PortfolioPosition[];
+  groups: PortfolioGroup[];
   onEdit: (position: PortfolioPosition) => void;
+  onAdd: (group: PortfolioGroup) => void;
 }) {
   return (
     <Card withBorder padding={0}>
-      <Table.ScrollContainer minWidth={1000}>
-        <Table striped highlightOnHover verticalSpacing="sm">
+      <Table.ScrollContainer minWidth={1050}>
+        <Table highlightOnHover verticalSpacing="sm">
           <Table.Thead>
             <Table.Tr>
               <Table.Th>Облигация</Table.Th>
@@ -169,8 +194,8 @@ function PositionsTable({
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {positions.map((position) => (
-              <PositionRow key={position.id} position={position} onEdit={() => onEdit(position)} />
+            {groups.map((group) => (
+              <GroupRows key={group.ticker} group={group} onEdit={onEdit} onAdd={() => onAdd(group)} />
             ))}
           </Table.Tbody>
         </Table>
@@ -179,115 +204,269 @@ function PositionsTable({
   );
 }
 
-function PositionRow({ position, onEdit }: { position: PortfolioPosition; onEdit: () => void }) {
+/** Брокеры строки облигации: один - по имени, несколько - числом, имена в подсказке */
+function BrokersCell({ brokers }: { brokers: string[] }) {
+  if (brokers.length === 0) {
+    return (
+      <Text size="sm" c="dimmed">
+        —
+      </Text>
+    );
+  }
+  if (brokers.length === 1) {
+    return <Text size="sm">{brokers[0]}</Text>;
+  }
+  return (
+    <Tooltip label={brokers.join(', ')}>
+      <Text size="sm" style={{ cursor: 'help' }}>
+        {brokers.length} {plural(brokers.length, 'брокер', 'брокера', 'брокеров')}
+      </Text>
+    </Tooltip>
+  );
+}
+
+function datesLabel(first: string, last: string): string {
+  return first === last ? formatDate(first) : `${formatDate(first)} – ${formatDate(last)}`;
+}
+
+/**
+ * Облигация одной строкой. Одна покупка - изменить и удалить прямо в строке; несколько - строка-свод с суммами
+ * и средней ценой, покупки раскрываются под ней, у каждой свои действия.
+ */
+function GroupRows({
+  group,
+  onEdit,
+  onAdd,
+}: {
+  group: PortfolioGroup;
+  onEdit: (position: PortfolioPosition) => void;
+  onAdd: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const name = group.bondName ?? group.ticker;
+  const single = group.positions.length === 1 ? group.positions[0]! : null;
+  const toggleLabel = `${expanded ? 'Скрыть' : 'Показать'} покупки: ${name}`;
+
+  return (
+    <>
+      <Table.Tr>
+        <Table.Td>
+          <Group gap={6} wrap="nowrap" align="flex-start">
+            {single == null && (
+              <ActionIcon variant="subtle" color="gray" size="sm" aria-label={toggleLabel} onClick={() => setExpanded((v) => !v)}>
+                {expanded ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
+              </ActionIcon>
+            )}
+            <div>
+              {group.bondName ? (
+                <Anchor component={Link} to={`/bonds/${encodeURIComponent(group.ticker)}`} size="sm" fw={500}>
+                  {group.bondName}
+                </Anchor>
+              ) : (
+                <Text size="sm" fw={500}>
+                  {group.ticker}
+                </Text>
+              )}
+              <Text size="xs" c="dimmed">
+                {group.bondName ? group.ticker : 'облигации больше нет в списке торгуемых'}
+                {single == null &&
+                  ` · ${group.positions.length} ${plural(group.positions.length, 'покупка', 'покупки', 'покупок')}`}
+              </Text>
+            </div>
+          </Group>
+        </Table.Td>
+        <Table.Td>
+          <BrokersCell brokers={group.brokers} />
+        </Table.Td>
+        <Table.Td>{datesLabel(group.firstBuyDate, group.lastBuyDate)}</Table.Td>
+        <Table.Td ta="right">{formatNumber(group.quantity)}</Table.Td>
+        <Table.Td ta="right">
+          <Text size="sm">{formatPercent(group.buyPrice)}</Text>
+          {single == null ? (
+            <Text size="xs" c="dimmed">
+              средняя
+            </Text>
+          ) : (
+            <PaidRubCaption position={single} />
+          )}
+        </Table.Td>
+        <Table.Td ta="right">{formatPercent(group.currentPrice)}</Table.Td>
+        <AmountCells
+          currency={group.currency}
+          currentAmount={group.currentAmount}
+          currentAmountInRub={group.currentAmountInRub}
+          revenue={group.revenue}
+          revenueInRub={group.revenueInRub}
+          revenuePercent={group.revenuePercent}
+        />
+        <Table.Td>
+          {single ? (
+            <PositionActions position={single} onEdit={() => onEdit(single)} />
+          ) : (
+            <Group gap={4} wrap="nowrap" justify="flex-end">
+              <Tooltip label="Ещё покупка этой облигации">
+                <ActionIcon variant="subtle" color="gray" aria-label={`Добавить покупку: ${name}`} onClick={onAdd}>
+                  <IconPlus size={16} />
+                </ActionIcon>
+              </Tooltip>
+            </Group>
+          )}
+        </Table.Td>
+      </Table.Tr>
+      {single == null &&
+        expanded &&
+        group.positions.map((position) => (
+          <Table.Tr key={position.id} bg="var(--mantine-color-default-hover)">
+            <Table.Td pl={44}>
+              <Text size="xs" c="dimmed">
+                покупка
+              </Text>
+            </Table.Td>
+            <Table.Td>
+              <BrokersCell brokers={position.broker ? [position.broker] : []} />
+            </Table.Td>
+            <Table.Td>{formatDate(position.buyDate)}</Table.Td>
+            <Table.Td ta="right">{formatNumber(position.quantity)}</Table.Td>
+            <Table.Td ta="right">
+              <Text size="sm">{formatPercent(position.buyPrice)}</Text>
+              <PaidRubCaption position={position} />
+            </Table.Td>
+            <Table.Td ta="right">{formatPercent(position.currentPrice)}</Table.Td>
+            <AmountCells
+              currency={position.currency}
+              currentAmount={position.currentAmount}
+              currentAmountInRub={position.currentAmountInRub}
+              revenue={position.revenue}
+              revenueInRub={position.revenueInRub}
+              revenuePercent={position.revenuePercent}
+            />
+            <Table.Td>
+              <PositionActions position={position} onEdit={() => onEdit(position)} />
+            </Table.Td>
+          </Table.Tr>
+        ))}
+    </>
+  );
+}
+
+/** Сколько рублей заплачено, если пользователь это указал - видно, откуда рублёвый доход */
+function PaidRubCaption({ position }: { position: PortfolioPosition }) {
+  if (position.buyAmountRub == null) {
+    return null;
+  }
+  return (
+    <Text size="xs" c="dimmed">
+      {money(position.buyAmountRub, 'rub')}
+    </Text>
+  );
+}
+
+function AmountCells({
+  currency,
+  currentAmount,
+  currentAmountInRub,
+  revenue,
+  revenueInRub,
+  revenuePercent,
+}: {
+  currency: string | null;
+  currentAmount: number | null;
+  currentAmountInRub: number | null;
+  revenue: number | null;
+  revenueInRub: number | null;
+  revenuePercent: number | null;
+}) {
+  return (
+    <>
+      <Table.Td ta="right">
+        <Text size="sm">{money(currentAmount, currency)}</Text>
+        <RubCaption value={currentAmountInRub} currency={currency} />
+      </Table.Td>
+      <Table.Td ta="right">
+        <Text size="sm" fw={500} c={revenueColor(revenue)}>
+          {signedMoney(revenue, currency)}
+        </Text>
+        <RubCaption value={revenueInRub} currency={currency} signed />
+      </Table.Td>
+      <Table.Td ta="right">
+        <Text size="sm" fw={500} c={revenueColor(revenuePercent)}>
+          {signedPercent(revenuePercent)}
+        </Text>
+      </Table.Td>
+    </>
+  );
+}
+
+function PositionActions({ position, onEdit }: { position: PortfolioPosition; onEdit: () => void }) {
   const { remove } = usePortfolioMutations();
   const [confirming, setConfirming] = useState(false);
   const name = position.bondName ?? position.ticker;
+  const label = `${name} от ${formatDate(position.buyDate)}`;
 
   return (
-    <Table.Tr>
-      <Table.Td>
-        {position.bondName ? (
-          <Anchor component={Link} to={`/bonds/${encodeURIComponent(position.ticker)}`} size="sm" fw={500}>
-            {position.bondName}
-          </Anchor>
-        ) : (
-          <Text size="sm" fw={500}>
-            {position.ticker}
-          </Text>
-        )}
-        <Text size="xs" c="dimmed">
-          {position.bondName ? position.ticker : 'облигации больше нет в списке торгуемых'}
-        </Text>
-      </Table.Td>
-      <Table.Td>
-        {position.broker ?? (
-          <Text size="sm" c="dimmed">
-            —
-          </Text>
-        )}
-      </Table.Td>
-      <Table.Td>{formatDate(position.buyDate)}</Table.Td>
-      <Table.Td ta="right">{formatNumber(position.quantity)}</Table.Td>
-      <Table.Td ta="right">{formatPercent(position.buyPrice)}</Table.Td>
-      <Table.Td ta="right">{formatPercent(position.currentPrice)}</Table.Td>
-      <Table.Td ta="right">
-        <Text size="sm">{money(position.currentAmount, position.currency)}</Text>
-        <RubCaption value={position.currentAmountInRub} currency={position.currency} />
-      </Table.Td>
-      <Table.Td ta="right">
-        <Text size="sm" fw={500} c={revenueColor(position.revenue)}>
-          {signedMoney(position.revenue, position.currency)}
-        </Text>
-        <RubCaption value={position.revenueInRub} currency={position.currency} signed />
-      </Table.Td>
-      <Table.Td ta="right">
-        <Text size="sm" fw={500} c={revenueColor(position.revenuePercent)}>
-          {signedPercent(position.revenuePercent)}
-        </Text>
-      </Table.Td>
-      <Table.Td>
-        <Group gap={4} wrap="nowrap" justify="flex-end">
-          <Tooltip label="Изменить">
-            <ActionIcon variant="subtle" color="gray" aria-label={`Изменить покупку: ${name}`} onClick={onEdit}>
-              <IconPencil size={16} />
+    <Group gap={4} wrap="nowrap" justify="flex-end">
+      <Tooltip label="Изменить">
+        <ActionIcon variant="subtle" color="gray" aria-label={`Изменить покупку: ${label}`} onClick={onEdit}>
+          <IconPencil size={16} />
+        </ActionIcon>
+      </Tooltip>
+      <Popover opened={confirming} onChange={setConfirming} position="bottom-end" withArrow shadow="md">
+        <Popover.Target>
+          <Tooltip label="Удалить" disabled={confirming}>
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              aria-label={`Удалить покупку: ${label}`}
+              onClick={() => setConfirming((value) => !value)}
+            >
+              <IconTrash size={16} />
             </ActionIcon>
           </Tooltip>
-          <Popover opened={confirming} onChange={setConfirming} position="bottom-end" withArrow shadow="md">
-            <Popover.Target>
-              <Tooltip label="Удалить" disabled={confirming}>
-                <ActionIcon
-                  variant="subtle"
-                  color="gray"
-                  aria-label={`Удалить покупку: ${name}`}
-                  onClick={() => setConfirming((value) => !value)}
-                >
-                  <IconTrash size={16} />
-                </ActionIcon>
-              </Tooltip>
-            </Popover.Target>
-            <Popover.Dropdown>
-              <Stack gap="xs">
-                <Text size="sm">Удалить покупку {name}?</Text>
-                <Group gap="xs" justify="flex-end">
-                  <Button size="xs" variant="default" onClick={() => setConfirming(false)}>
-                    Отмена
-                  </Button>
-                  <Button
-                    size="xs"
-                    color="red"
-                    loading={remove.isPending}
-                    onClick={() => remove.mutate(position.id, { onSuccess: () => setConfirming(false) })}
-                  >
-                    Удалить
-                  </Button>
-                </Group>
-              </Stack>
-            </Popover.Dropdown>
-          </Popover>
-        </Group>
-      </Table.Td>
-    </Table.Tr>
+        </Popover.Target>
+        <Popover.Dropdown>
+          <Stack gap="xs">
+            <Text size="sm">Удалить покупку {label}?</Text>
+            <Group gap="xs" justify="flex-end">
+              <Button size="xs" variant="default" onClick={() => setConfirming(false)}>
+                Отмена
+              </Button>
+              <Button
+                size="xs"
+                color="red"
+                loading={remove.isPending}
+                onClick={() => remove.mutate(position.id, { onSuccess: () => setConfirming(false) })}
+              >
+                Удалить
+              </Button>
+            </Group>
+          </Stack>
+        </Popover.Dropdown>
+      </Popover>
+    </Group>
   );
 }
 
 /**
  * Новая покупка или изменение существующей. У новой цена покупки по умолчанию - текущая цена выбранной облигации,
  * пока пользователь не ввёл свою. Облигацию у существующей покупки не поменять - только удалить и добавить заново.
+ * У валютной облигации - необязательная сумма в рублях, сколько списал брокер.
  */
-function PositionForm({ position, onDone }: { position?: PortfolioPosition; onDone: () => void }) {
+function PositionForm({ position, preset, onDone }: { position?: PortfolioPosition; preset?: PresetBond; onDone: () => void }) {
   const queryClient = useQueryClient();
   const { create, update } = usePortfolioMutations();
   const today = todayIso();
-  const [ticker, setTicker] = useState<string | null>(position?.ticker ?? null);
-  const [tickerName, setTickerName] = useState<string | null>(null);
+  const [ticker, setTicker] = useState<string | null>(position?.ticker ?? preset?.ticker ?? null);
+  const [tickerName, setTickerName] = useState<string | null>(preset?.name ?? null);
+  const [currency, setCurrency] = useState<string | null>(position?.currency ?? preset?.currency ?? null);
   const [quantity, setQuantity] = useState<number | undefined>(position?.quantity ?? 1);
-  const [buyPrice, setBuyPrice] = useState<number | undefined>(position?.buyPrice);
+  const [buyPrice, setBuyPrice] = useState<number | undefined>(position?.buyPrice ?? preset?.currentPrice ?? undefined);
   // пользователь ввёл свою цену - текущая цена облигации её не затирает, даже если пришла позже
   const priceTouched = useRef(position != null);
   const [buyDate, setBuyDate] = useState(position?.buyDate ?? today);
   const [broker, setBroker] = useState<string | null>(position?.broker ?? null);
+  const [buyAmountRub, setBuyAmountRub] = useState<number | undefined>(position?.buyAmountRub ?? undefined);
   const [submitted, setSubmitted] = useState(false);
+  const foreign = currency != null && !isRubCurrency(currency);
 
   const errors = {
     ticker: position == null && !ticker ? 'Выберите облигацию' : undefined,
@@ -297,6 +476,7 @@ function PositionForm({ position, onDone }: { position?: PortfolioPosition; onDo
         : undefined,
     buyPrice: buyPrice == null || buyPrice <= 0 || buyPrice > MAX_BUY_PRICE ? `Больше 0 и не выше ${MAX_BUY_PRICE} %` : undefined,
     buyDate: !isIsoDate(buyDate) ? 'Укажите дату' : buyDate > today ? 'Не позже сегодня' : undefined,
+    buyAmountRub: foreign && buyAmountRub != null && buyAmountRub <= 0 ? 'Больше 0' : undefined,
   };
   const valid = Object.values(errors).every((error) => error == null);
   const mutation = position ? update : create;
@@ -304,6 +484,7 @@ function PositionForm({ position, onDone }: { position?: PortfolioPosition; onDo
   const onTickerChange = (next: string | null) => {
     setTicker(next);
     setTickerName(null);
+    setCurrency(null);
     if (!next) {
       return;
     }
@@ -311,6 +492,7 @@ function PositionForm({ position, onDone }: { position?: PortfolioPosition; onDo
       .fetchQuery({ queryKey: bondKeys.detail(next), queryFn: () => fetchBond(next) })
       .then((bond) => {
         setTickerName(bond.name);
+        setCurrency(bond.price?.nominal?.currency ?? null);
         const current = bond.price?.percentagePrice;
         if (current != null) {
           setBuyPrice((value) => (priceTouched.current ? value : current));
@@ -324,12 +506,15 @@ function PositionForm({ position, onDone }: { position?: PortfolioPosition; onDo
     if (!valid || quantity == null || buyPrice == null) {
       return;
     }
-    // пустая строка - без брокера (в том числе снять брокера у существующей покупки)
-    const request = { quantity, buyPrice, buyDate, broker: broker ?? '' };
+    // пустая строка - без брокера (в том числе снять брокера у существующей покупки); без рублёвой суммы - по курсу ЦБ
+    const request: PortfolioPositionRequest = { quantity, buyPrice, buyDate, broker: broker ?? '' };
+    if (foreign && buyAmountRub != null) {
+      request.buyAmountRub = buyAmountRub;
+    }
     if (position) {
       update.mutate({ id: position.id, ...request }, { onSuccess: onDone });
     } else {
-      create.mutate({ ticker: ticker!, ...request }, { onSuccess: onDone });
+      create.mutate({ ...request, ticker: ticker! }, { onSuccess: onDone });
     }
   };
 
@@ -373,6 +558,19 @@ function PositionForm({ position, onDone }: { position?: PortfolioPosition; onDo
         decimalSeparator=","
         error={shown(errors.buyPrice)}
       />
+      {foreign && (
+        <NumberInput
+          label="Заплачено, ₽"
+          description="Сколько рублей списал брокер за облигации, без НКД и комиссии. Пусто - по курсу ЦБ на дату покупки"
+          value={buyAmountRub ?? ''}
+          onChange={(value) => setBuyAmountRub(typeof value === 'number' ? value : undefined)}
+          min={0}
+          decimalScale={2}
+          decimalSeparator=","
+          thousandSeparator=" "
+          error={shown(errors.buyAmountRub)}
+        />
+      )}
       <BrokerSelect value={broker} onChange={setBroker} />
       <TextInput
         label="Дата покупки"

@@ -369,7 +369,9 @@ export interface PortfolioPosition {
   revenue: number | null;
   /** Доход в % к стоимости покупки */
   revenuePercent: number | null;
-  /** Стоимость покупки в рублях по курсу ЦБ на дату покупки; null - курса нет */
+  /** Сколько рублей заплачено, как ввёл пользователь; null - не вводил */
+  buyAmountRub: number | null;
+  /** Стоимость покупки в рублях: введённая сумма, иначе по курсу ЦБ на дату покупки; null - курса нет */
   buyAmountInRub: number | null;
   /** Текущая стоимость в рублях по курсу ЦБ на сегодня; null - цены или курса нет */
   currentAmountInRub: number | null;
@@ -396,9 +398,38 @@ export interface PortfolioTotal {
   revenueInRub: number | null;
 }
 
-export interface Portfolio {
-  /** По тикеру, затем по дате покупки */
+/** Все покупки одной облигации одной строкой: суммы - сложение сумм покупок, в валюте номинала */
+export interface PortfolioGroup {
+  ticker: string;
+  /** null - облигации уже нет в системе */
+  bondName: string | null;
+  isin: string | null;
+  currency: string | null;
+  /** Сколько облигаций во всех покупках */
+  quantity: number;
+  /** Разные брокеры покупок по имени */
+  brokers: string[];
+  /** YYYY-MM-DD */
+  firstBuyDate: string;
+  lastBuyDate: string;
+  nominal: number | null;
+  /** Средняя цена покупки, % от номинала, взвешенная по количеству */
+  buyPrice: number;
+  currentPrice: number | null;
+  buyAmount: number | null;
+  currentAmount: number | null;
+  revenue: number | null;
+  revenuePercent: number | null;
+  buyAmountInRub: number | null;
+  currentAmountInRub: number | null;
+  revenueInRub: number | null;
+  /** Покупки по дате */
   positions: PortfolioPosition[];
+}
+
+export interface Portfolio {
+  /** Строка на облигацию, по тикеру */
+  groups: PortfolioGroup[];
   totals: PortfolioTotal[];
 }
 
@@ -412,6 +443,8 @@ export interface PortfolioPositionRequest {
   buyDate?: string;
   /** Имя брокера: такого у пользователя нет - бэк его создаёт; пусто - без брокера */
   broker?: string;
+  /** Только у валютной облигации: сколько рублей заплачено, без НКД и комиссии; не задано - по курсу ЦБ */
+  buyAmountRub?: number;
 }
 
 /** Брокер пользователя - метка покупки */
