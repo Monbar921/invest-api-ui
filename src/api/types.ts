@@ -123,6 +123,8 @@ export interface ProfitCalculationRequest {
   sellPricePercent?: number;
   /** Ставка НДФЛ в %; не задана - налог не учитывается */
   taxRatePercent?: number;
+  /** Ставка вклада, % годовых, для сравнения с вкладом на ту же сумму; не задана - не сравнивать */
+  depositRatePercent?: number;
 }
 
 /** Как облигация выходит из позиции: продажа, выкуп по оферте или погашение */
@@ -156,6 +158,14 @@ export interface ProfitCalculation {
   tax: number;
   netProfit: number;
   netProfitPercent: number;
+  /**
+   * Вклад на ту же сумму (покупка с НКД) на тот же срок: простые проценты, НДФЛ по той же ставке.
+   * null - ставка вклада не задана
+   */
+  depositRatePercent: number | null;
+  depositProfit: number | null;
+  depositTax: number | null;
+  depositNetProfit: number | null;
   unknownCouponCount: number;
   aciUnknown: boolean;
   amortizationScheduleMissing: boolean;

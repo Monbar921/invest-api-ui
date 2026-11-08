@@ -17,7 +17,7 @@ import {
 import { useDebouncedValue } from '@mantine/hooks';
 import { IconAlertTriangle } from '@tabler/icons-react';
 import { useMemo, useState } from 'react';
-import { useProfitCalculation } from '../api/queries';
+import { useMarketOverview, useProfitCalculation } from '../api/queries';
 import type { Bond, ExitType, ProfitCalculation, ProfitCalculationRequest } from '../api/types';
 import { isIsoDate, todayIso, toIsoDate } from '../lib/dates';
 import { formatDate, formatMoney, formatNumber, formatPercent, plural } from '../lib/format';
@@ -42,6 +42,7 @@ interface FormErrors {
   sellDate?: string;
   buyPrice?: string;
   sellPrice?: string;
+  depositRate?: string;
 }
 
 /** Форма калькулятора дохода по облигации и результат расчёта; пересчёт - после паузы в правке формы */
@@ -58,11 +59,15 @@ export function ProfitCalculator({ bond }: { bond: Bond }) {
   const [sellPrice, setSellPrice] = useState<number | undefined>(currentPercent);
   const [taxEnabled, setTaxEnabled] = useState(true);
   const [taxRate, setTaxRate] = useState<TaxRate>('13');
+  // ставка вклада: пока пользователь её не менял (null) - текущая ключевая ставка ЦБ, вклады обычно рядом с ней
+  const [depositRateInput, setDepositRateInput] = useState<number | undefined | null>(null);
+  const keyRate = useMarketOverview().data?.keyRate ?? undefined;
+  const depositRate = depositRateInput === null ? keyRate : depositRateInput;
 
   // в дату погашения или оферты облигацию выкупают по номиналу - цена продажи не нужна
   const exitAtPar = Boolean((maturityDate && sellDate >= maturityDate) || (offerDate && sellDate === offerDate));
 
-  const errors = validate({ today, maturityDate, quantity, buyDate, sellDate, buyPrice, sellPrice, exitAtPar });
+  const errors = validate({ today, maturityDate, quantity, buyDate, sellDate, buyPrice, sellPrice, exitAtPar, depositRate });
   const valid = Object.keys(errors).length === 0;
 
   // зависимости - значения полей, а не объект: новый объект на каждом рендере перезапускал бы паузу бесконечно
@@ -74,8 +79,9 @@ export function ProfitCalculator({ bond }: { bond: Bond }) {
       buyPricePercent: buyPrice,
       sellPricePercent: exitAtPar ? undefined : sellPrice,
       taxRatePercent: taxEnabled ? Number(taxRate) : undefined,
+      depositRatePercent: depositRate,
     }),
-    [buyDate, sellDate, quantity, buyPrice, sellPrice, exitAtPar, taxEnabled, taxRate],
+    [buyDate, sellDate, quantity, buyPrice, sellPrice, exitAtPar, taxEnabled, taxRate, depositRate],
   );
   const [debounced] = useDebouncedValue(parameters, CALCULATION_DELAY_MS);
   const calculation = useProfitCalculation(bond.ticker, debounced, valid && debounced === parameters);
@@ -169,6 +175,18 @@ export function ProfitCalculator({ bond }: { bond: Bond }) {
                 disabled={!taxEnabled}
               />
             </Group>
+            <NumberInput
+              label="Вклад для сравнения, % годовых"
+              description={depositRateInput === null && keyRate !== undefined ? 'ключевая ставка ЦБ' : 'пусто — не сравнивать'}
+              value={depositRate ?? ''}
+              onChange={(value) => setDepositRateInput(typeof value === 'number' ? value : undefined)}
+              min={0}
+              max={99}
+              decimalScale={2}
+              decimalSeparator=","
+              w={220}
+              error={errors.depositRate}
+            />
           </Group>
         </Stack>
       </Card>
@@ -201,6 +219,7 @@ function validate({
   buyPrice,
   sellPrice,
   exitAtPar,
+  depositRate,
 }: {
   today: string;
   maturityDate: string | null;
@@ -210,6 +229,7 @@ function validate({
   buyPrice: number | undefined;
   sellPrice: number | undefined;
   exitAtPar: boolean;
+  depositRate: number | undefined;
 }): FormErrors {
   const errors: FormErrors = {};
   if (!quantity || quantity < 1) {
@@ -238,6 +258,9 @@ function validate({
     } else if (sellPrice <= 0) {
       errors.sellPrice = 'Больше нуля';
     }
+  }
+  if (depositRate !== undefined && (depositRate < 0 || depositRate >= 100)) {
+    errors.depositRate = 'От 0 до 100';
   }
   return errors;
 }
@@ -274,6 +297,8 @@ function CalculationResult({ result, updating }: { result: ProfitCalculation; up
         )}
       </SimpleGrid>
 
+      <DepositComparison result={result} money={money} />
+
       <Card withBorder padding="md">
         <Title order={4} mb="sm">
           Из чего складывается
@@ -304,6 +329,48 @@ function CalculationResult({ result, updating }: { result: ProfitCalculation; up
 
       <Warnings result={result} />
     </Stack>
+  );
+}
+
+/**
+ * Вклад на ту же сумму и срок: доход, налог и разница с облигацией. Сравниваются доходы после налога, если он
+ * учитывается, иначе - до налога.
+ */
+function DepositComparison({ result, money }: { result: ProfitCalculation; money: (value: number) => string }) {
+  if (result.depositRatePercent == null || result.depositProfit == null || result.depositNetProfit == null) {
+    return null;
+  }
+
+  const taxed = result.taxRatePercent != null;
+  const difference = Math.round((result.netProfit - result.depositNetProfit) * 100) / 100;
+  const days = `${formatNumber(result.days)} ${plural(result.days, 'день', 'дня', 'дней')}`;
+  const verdict = difference > 0 ? 'Облигация выгоднее' : difference < 0 ? 'Вклад выгоднее' : 'Доход одинаковый';
+
+  return (
+    <Card withBorder padding="md">
+      <Title order={4} mb="sm">
+        Вклад под {formatPercent(result.depositRatePercent)} на ту же сумму
+      </Title>
+      <SimpleGrid cols={{ base: 1, xs: 2, md: taxed ? 4 : 2 }}>
+        <ResultStat label="Доход по вкладу" value={money(result.depositProfit)} hint={`за ${days}, без капитализации`} />
+        {taxed && (
+          <>
+            <ResultStat
+              label={`НДФЛ ${formatPercent(result.taxRatePercent)}`}
+              value={money(result.depositTax ?? 0)}
+              hint="без необлагаемого лимита"
+            />
+            <ResultStat label="Вклад после налога" value={money(result.depositNetProfit)} hint="на руки" />
+          </>
+        )}
+        <ResultStat
+          label={verdict}
+          value={money(Math.abs(difference))}
+          hint={taxed ? 'разница после налога' : 'разница в доходе'}
+          color={difference > 0 ? 'teal' : difference < 0 ? 'red' : undefined}
+        />
+      </SimpleGrid>
+    </Card>
   );
 }
 

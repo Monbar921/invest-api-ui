@@ -69,6 +69,10 @@ const calculation: ProfitCalculation = {
   tax: 75.98,
   netProfit: 508.51,
   netProfitPercent: 50.07,
+  depositRatePercent: null,
+  depositProfit: null,
+  depositTax: null,
+  depositNetProfit: null,
   unknownCouponCount: 2,
   aciUnknown: false,
   amortizationScheduleMissing: false,
@@ -155,6 +159,39 @@ describe('CalculatorPage', () => {
 
     expect(await screen.findByText(byText('584,49 ₽'))).toBeInTheDocument();
     expect(screen.queryByText('Доход после налога')).not.toBeInTheDocument();
+  });
+
+  it('сравнивает с вкладом под ключевую ставку и даёт её поменять', async () => {
+    const calls: { url: string; init?: RequestInit }[] = [];
+    vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+      calls.push({ url, init });
+      const body = url.endsWith('/market-overview')
+        ? { keyRate: 16.5, currencies: [] }
+        : url.endsWith('/calculation')
+          ? { ...calculation, depositRatePercent: 16.5, depositProfit: 657.25, depositTax: 85.44, depositNetProfit: 571.76 }
+          : bond;
+      return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    });
+    renderRoute(<CalculatorPage />, { path: '/calculator', url: '/calculator?ticker=RU000A10DCK7' });
+    const lastBody = () => JSON.parse(String(calls.filter((call) => call.url.endsWith('/calculation')).at(-1)!.init?.body));
+
+    // по умолчанию - текущая ключевая ставка
+    await waitFor(() => expect(lastBody().depositRatePercent).toBe(16.5));
+    expect(await screen.findByText('Вклад под 16,5 % на ту же сумму')).toBeInTheDocument();
+    expect(screen.getByText(byText('657,25 ₽'))).toBeInTheDocument();
+    expect(screen.getByText(byText('85,44 ₽'))).toBeInTheDocument();
+    // после налога: облигация 508,51, вклад 571,76
+    expect(screen.getByText('Вклад выгоднее')).toBeInTheDocument();
+    expect(screen.getByText(byText('63,25 ₽'))).toBeInTheDocument();
+
+    const input = screen.getByLabelText('Вклад для сравнения, % годовых');
+    await userEvent.clear(input);
+    await userEvent.type(input, '12');
+    await waitFor(() => expect(lastBody().depositRatePercent).toBe(12));
+
+    // пустое поле - без сравнения
+    await userEvent.clear(input);
+    await waitFor(() => expect(lastBody().depositRatePercent).toBeUndefined());
   });
 
   it('с ошибкой в форме прячет прошлый результат', async () => {
