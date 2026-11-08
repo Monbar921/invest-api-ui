@@ -1,5 +1,5 @@
-import { ActionIcon, Alert, Anchor, Button, Group, Loader, Popover, Stack, Text, Tooltip } from '@mantine/core';
-import { IconBrandTelegram, IconExternalLink } from '@tabler/icons-react';
+import { ActionIcon, Alert, Anchor, Button, Code, CopyButton, Group, Loader, Popover, Stack, Text, Tooltip } from '@mantine/core';
+import { IconBrandTelegram, IconCheck, IconCopy, IconExternalLink } from '@tabler/icons-react';
 import { useState } from 'react';
 import { useCreateTelegramLink, useTelegramStatus, useUnlinkTelegram } from '../api/queries';
 import type { TelegramLink, TelegramStatus } from '../api/types';
@@ -119,22 +119,54 @@ function StatusBody({
   }
 
   if (link) {
+    const code = linkCode(link.url);
     return (
       <>
         <Text size="sm">
           Откройте бота и нажмите «Старт» - подключение появится здесь само. Ссылка одноразовая, действует до{' '}
           {formatDateTime(link.expiresAt)}.
         </Text>
+        {/* tg:// открывает приложение Telegram сразу, с кодом; через страницу t.me Telegram Desktop его иногда теряет */}
+        {status.botUsername && code && (
+          <Button
+            component="a"
+            href={`tg://resolve?domain=${status.botUsername}&start=${code}`}
+            size="xs"
+            leftSection={<IconBrandTelegram size={14} />}
+          >
+            Открыть в приложении Telegram
+          </Button>
+        )}
         <Button
           component="a"
           href={link.url}
           target="_blank"
           rel="noopener noreferrer"
           size="xs"
+          variant="default"
           leftSection={<IconExternalLink size={14} />}
         >
-          Открыть Telegram
+          Открыть через t.me
         </Button>
+        {code && (
+          <Stack gap={4}>
+            <Text size="xs" c="dimmed">
+              Если бот ответил «Это бот уведомлений…» - отправьте ему этот код сообщением:
+            </Text>
+            <Group gap="xs" wrap="nowrap">
+              <Code style={{ wordBreak: 'break-all' }}>{code}</Code>
+              <CopyButton value={code}>
+                {({ copied, copy }) => (
+                  <Tooltip label={copied ? 'Скопировано' : 'Скопировать код'}>
+                    <ActionIcon variant="subtle" aria-label="Скопировать код" onClick={copy}>
+                      {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
+                    </ActionIcon>
+                  </Tooltip>
+                )}
+              </CopyButton>
+            </Group>
+          </Stack>
+        )}
         <Group gap="xs">
           <Loader size="xs" />
           <Text size="xs" c="dimmed">
@@ -170,4 +202,13 @@ function StatusBody({
       )}
     </>
   );
+}
+
+/** Код подключения - параметр start ссылки https://t.me/<bot>?start=<код> */
+function linkCode(url: string): string | null {
+  try {
+    return new URL(url).searchParams.get('start');
+  } catch {
+    return null;
+  }
 }

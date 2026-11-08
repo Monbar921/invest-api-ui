@@ -39,7 +39,14 @@ describe('TelegramConnect', () => {
     await openPanel();
     await userEvent.click(await screen.findByRole('button', { name: 'Подключить Telegram' }));
 
-    expect(await screen.findByRole('link', { name: 'Открыть Telegram' })).toHaveAttribute('href', LINK.url);
+    expect(await screen.findByRole('link', { name: 'Открыть в приложении Telegram' })).toHaveAttribute(
+      'href',
+      'tg://resolve?domain=invest_bonds_bot&start=abc_DEF-123',
+    );
+    expect(screen.getByRole('link', { name: 'Открыть через t.me' })).toHaveAttribute('href', LINK.url);
+    // если Telegram потерял параметр start, код можно отправить боту вручную
+    expect(screen.getByText('abc_DEF-123')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Скопировать код' })).toBeInTheDocument();
     expect(calls[1]).toMatchObject({ url: '/api/alerts/telegram/link-token', init: { method: 'POST' } });
     // после /start в боте статус меняется - панель узнаёт об этом опросом
     expect(await screen.findByText(/Подключён @alice/, {}, { timeout: 5000 })).toBeInTheDocument();
