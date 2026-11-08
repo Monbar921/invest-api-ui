@@ -20,8 +20,17 @@ import {
   fetchNotifications,
   updateAlert,
 } from './alerts';
+import { createPosition, deletePosition, fetchPortfolio, updatePosition } from './portfolio';
 import { createTelegramLink, fetchTelegramStatus, unlinkTelegram } from './telegram';
-import type { BondParameters, BondScope, CandleInterval, NewsSource, Page, ProfitCalculationRequest } from './types';
+import type {
+  BondParameters,
+  BondScope,
+  CandleInterval,
+  NewsSource,
+  Page,
+  PortfolioPositionRequest,
+  ProfitCalculationRequest,
+} from './types';
 
 export const bondKeys = {
   all: ['bonds'] as const,
@@ -211,5 +220,28 @@ export function useAlertMutations() {
       onSuccess,
     }),
     remove: useMutation({ mutationFn: deleteAlert, onSuccess }),
+  };
+}
+
+export const portfolioKeys = {
+  all: ['portfolio'] as const,
+};
+
+/** Портфель с текущими ценами; цены на бэке обновляются в течение дня - перечитываем при возврате на вкладку */
+export function usePortfolio() {
+  return useQuery({ queryKey: portfolioKeys.all, queryFn: fetchPortfolio });
+}
+
+/** Добавление, изменение и удаление покупки; после - портфель перечитывается (итоги считает бэк) */
+export function usePortfolioMutations() {
+  const queryClient = useQueryClient();
+  const onSuccess = () => queryClient.invalidateQueries({ queryKey: portfolioKeys.all });
+  return {
+    create: useMutation({ mutationFn: (position: PortfolioPositionRequest) => createPosition(position), onSuccess }),
+    update: useMutation({
+      mutationFn: ({ id, ...position }: PortfolioPositionRequest & { id: number }) => updatePosition(id, position),
+      onSuccess,
+    }),
+    remove: useMutation({ mutationFn: deletePosition, onSuccess }),
   };
 }

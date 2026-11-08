@@ -19,6 +19,10 @@ export const router = createBrowserRouter([
         lazy: () => import('./pages/AlertsPage').then((module) => ({ Component: module.AlertsPage })),
       },
       {
+        path: 'portfolio',
+        lazy: () => import('./pages/PortfolioPage').then((module) => ({ Component: module.PortfolioPage })),
+      },
+      {
         path: 'calculator',
         lazy: () => import('./pages/CalculatorPage').then((module) => ({ Component: module.CalculatorPage })),
       },

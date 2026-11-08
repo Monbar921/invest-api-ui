@@ -340,3 +340,57 @@ export interface NotificationItem {
   /** Почему не отправлено; у PENDING - ошибка последней попытки */
   lastError: string | null;
 }
+
+/** Позиция портфеля - одна покупка облигации с текущей оценкой. Суммы - в валюте номинала, на всё количество */
+export interface PortfolioPosition {
+  id: number;
+  ticker: string;
+  /** null - облигации уже нет в системе */
+  bondName: string | null;
+  isin: string | null;
+  /** Валюта номинала */
+  currency: string | null;
+  quantity: number;
+  /** YYYY-MM-DD */
+  buyDate: string;
+  /** Текущий номинал одной облигации */
+  nominal: number | null;
+  /** Цена покупки, % от номинала */
+  buyPrice: number;
+  /** Текущая цена, % от номинала; null - цены нет */
+  currentPrice: number | null;
+  /** Номинал × цена покупки × количество */
+  buyAmount: number | null;
+  /** Номинал × текущая цена × количество; null - цены нет */
+  currentAmount: number | null;
+  /** Текущая стоимость − стоимость покупки; отрицательный - убыток */
+  revenue: number | null;
+  /** Доход в % к стоимости покупки */
+  revenuePercent: number | null;
+  createdAt: string;
+}
+
+/** Итог портфеля в одной валюте номинала; позиции без цены не входят */
+export interface PortfolioTotal {
+  currency: string;
+  buyAmount: number;
+  currentAmount: number;
+  revenue: number;
+  revenuePercent: number | null;
+}
+
+export interface Portfolio {
+  /** По тикеру, затем по дате покупки */
+  positions: PortfolioPosition[];
+  totals: PortfolioTotal[];
+}
+
+/** Покупка в портфель; при изменении тикер не используется */
+export interface PortfolioPositionRequest {
+  ticker?: string;
+  quantity: number;
+  /** % от номинала */
+  buyPrice: number;
+  /** YYYY-MM-DD; не задана - сегодня */
+  buyDate?: string;
+}
