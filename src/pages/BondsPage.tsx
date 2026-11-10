@@ -1,7 +1,7 @@
-import { Box, Grid, Group, Stack, Tabs, Text, Title } from '@mantine/core';
+import { Anchor, Box, Grid, Group, Stack, Tabs, Text, Title } from '@mantine/core';
 import { useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
-import { useBondsPage } from '../api/queries';
+import { Link, useNavigate, useSearchParams } from 'react-router';
+import { useBondsPage, useCollections } from '../api/queries';
 import type { BondScope } from '../api/types';
 import { BondFilters } from '../components/BondFilters';
 import { BondSearch } from '../components/BondSearch';
@@ -10,6 +10,7 @@ import { ErrorState } from '../components/ErrorState';
 import { NewsFeed } from '../components/NewsFeed';
 import { parseBondSearch, toBondParameters, toSearchParams, type BondSearchState } from '../lib/bondSearchParams';
 import { formatNumber } from '../lib/format';
+import { usePageMeta } from '../lib/seo';
 
 const SCOPE_TABS: { value: BondScope; label: string }[] = [
   { value: 'all', label: 'Все' },
@@ -22,6 +23,14 @@ export function BondsPage() {
   const navigate = useNavigate();
   const state = useMemo(() => parseBondSearch(searchParams), [searchParams]);
   const parameters = useMemo(() => toBondParameters(state), [state]);
+  // выборка в query-строке - та же страница: canonical без параметров
+  usePageMeta({
+    title: 'Облигации Мосбиржи: цены, доходность, купоны',
+    description:
+      'Список облигаций: ОФЗ, корпоративные и валютные выпуски. Фильтры по цене, риску и типу купона, сортировка по ' +
+      'доходности к погашению и к оферте, лента новостей ЦБ и Мосбиржи.',
+    canonicalPath: '/bonds',
+  });
 
   // бэк считает страницы с 0, таблица - с 1
   const query = useBondsPage(state.scope, state.page - 1, state.size, parameters);
@@ -82,6 +91,8 @@ function BondsList({ state, query, update, reset, onSelect }: BondsListProps) {
         )}
       </Group>
 
+      <CollectionLinks />
+
       {/* поиск по всем облигациям, а не по текущей выборке: выбранная открывается в карточке */}
       <Box maw={560}>
         <BondSearch label="Поиск облигации" value={null} onChange={(ticker) => ticker && onSelect(ticker)} />
@@ -105,5 +116,25 @@ function BondsList({ state, query, update, reset, onSelect }: BondsListProps) {
         <BondsTable data={query.data} fetching={query.isFetching} state={state} onChange={update} />
       )}
     </Stack>
+  );
+}
+
+/** Подборки на готовых фильтрах - отдельные страницы с постоянным адресом */
+function CollectionLinks() {
+  const { data } = useCollections();
+  if (!data?.length) {
+    return null;
+  }
+  return (
+    <Group gap="xs">
+      <Text size="sm" c="dimmed">
+        Подборки:
+      </Text>
+      {data.map((collection) => (
+        <Anchor key={collection.slug} component={Link} to={`/collections/${collection.slug}`} size="sm">
+          {collection.title}
+        </Anchor>
+      ))}
+    </Group>
   );
 }

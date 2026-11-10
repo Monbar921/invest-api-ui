@@ -173,6 +173,48 @@ export function BondsTable({ data, fetching, state, onChange }: Props) {
   );
 }
 
+// подборки и эмитент: порядок задаёт бэк, сортировки по колонкам нет
+const fixedOrderColumns = columns.map((column) => ({ ...column, sortable: false }));
+
+interface FixedOrderProps {
+  bonds: Bond[];
+  fetching?: boolean;
+  emptyText: string;
+  /** Пагинация с сервера; не задана - все строки сразу */
+  pagination?: { page: number; size: number; total: number; onPageChange: (page: number) => void };
+}
+
+/** Те же колонки, что у списка облигаций, но в порядке от бэка: подборка, выпуски эмитента */
+export function FixedOrderBondsTable({ bonds, fetching = false, emptyText, pagination }: FixedOrderProps) {
+  const navigate = useNavigate();
+  const common = {
+    withTableBorder: true,
+    borderRadius: 'md',
+    highlightOnHover: true,
+    minHeight: bonds.length ? undefined : 160,
+    idAccessor: 'uid' as const,
+    records: bonds,
+    columns: fixedOrderColumns,
+    fetching,
+    noRecordsText: emptyText,
+    onRowClick: ({ record }: { record: Bond }) => navigate(`/bonds/${encodeURIComponent(record.ticker)}`),
+  };
+
+  if (!pagination) {
+    return <DataTable<Bond> {...common} />;
+  }
+  return (
+    <DataTable<Bond>
+      {...common}
+      page={pagination.page}
+      onPageChange={pagination.onPageChange}
+      totalRecords={pagination.total}
+      recordsPerPage={pagination.size}
+      paginationText={({ from, to, totalRecords }) => `${from}–${to} из ${totalRecords}`}
+    />
+  );
+}
+
 /** Цена в рублях - по ней идёт сортировка; у облигаций в валюте под ней цена в валюте облигации */
 function PriceCell({ price }: { price: Price | null }) {
   const current = price?.current;

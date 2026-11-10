@@ -22,11 +22,13 @@ import {
   plural,
 } from '../lib/format';
 import { BondAlertsButton } from '../components/BondAlertsButton';
+import { usePageMeta } from '../lib/seo';
 import { NotFoundPage } from './NotFoundPage';
 
 export function BondPage() {
   const { ticker = '' } = useParams();
   const query = useBond(ticker);
+  usePageMeta(query.data ? bondMeta(query.data) : null);
 
   if (query.isPending) {
     return (
@@ -51,6 +53,27 @@ export function BondPage() {
   return <BondDetails bond={query.data} />;
 }
 
+/** Те же title и description, что отдаёт gateway на SEO-странице облигации */
+function bondMeta(bond: Bond) {
+  const name = bond.name ?? bond.ticker;
+  const facts = [`${name}${bond.isin ? `, ISIN ${bond.isin}` : ''}`];
+  if (bond.price?.percentagePrice != null) {
+    facts.push(`цена ${formatPercent(bond.price.percentagePrice)} от номинала`);
+  }
+  if (bond.coupon?.yieldToMaturity != null) {
+    facts.push(`доходность к погашению ${formatPercent(bond.coupon.yieldToMaturity)} годовых`);
+  }
+  if (bond.maturityDate) {
+    facts.push(`погашение ${formatDate(bond.maturityDate)}`);
+  }
+  return {
+    title: `${name} (${bond.ticker}) - цена и доходность облигации`,
+    description: `${facts.join(', ')}. График цены, выплаты купонов и новости.`,
+    canonicalPath: `/bonds/${encodeURIComponent(bond.ticker)}`,
+    ogType: 'article' as const,
+  };
+}
+
 function BondDetails({ bond }: { bond: Bond }) {
   return (
     <Stack gap="lg">
@@ -72,6 +95,11 @@ function BondDetails({ bond }: { bond: Bond }) {
           <Text size="sm" c="dimmed">
             {formatSector(bond.sector)}
           </Text>
+          {bond.issuer && (
+            <Anchor component={Link} to={`/issuers/${bond.issuer.id}`} size="sm">
+              Эмитент: {bond.issuer.shortTitle ?? bond.issuer.id}
+            </Anchor>
+          )}
         </Group>
         <Button
           component={Link}

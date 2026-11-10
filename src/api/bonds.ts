@@ -1,12 +1,15 @@
 import { request } from './client';
 import type {
   Bond,
+  BondCollection,
+  BondCollectionPage,
   BondEvent,
   BondParameters,
   BondScope,
   BondSearchItem,
   Candle,
   CandleInterval,
+  Issuer,
   MarketOverview,
   NewsItem,
   NewsSource,
@@ -68,4 +71,23 @@ export function fetchMarketOverview(): Promise<MarketOverview> {
 
 export function fetchBondEvents(ticker: string): Promise<BondEvent[]> {
   return request<BondEvent[]>(`${BONDS_PATH}/${encodeURIComponent(ticker)}/events`);
+}
+
+/** Эмитент с выпусками; id - id эмитента на Мосбирже */
+export function fetchIssuer(id: number): Promise<Issuer> {
+  return request<Issuer>(`${BONDS_PATH}/issuers/${id}`);
+}
+
+export function fetchIssuerNews(id: number, page: number, size: number): Promise<Page<NewsItem>> {
+  const params = new URLSearchParams({ page: String(page), size: String(size) });
+  return request<Page<NewsItem>>(`${BONDS_PATH}/issuers/${id}/news?${params}`);
+}
+
+export function fetchCollections(): Promise<BondCollection[]> {
+  return request<BondCollection[]>(`${BONDS_PATH}/collections`);
+}
+
+export function fetchCollection(slug: string, page: number, size: number): Promise<BondCollectionPage> {
+  const params = new URLSearchParams({ page: String(page), size: String(size) });
+  return request<BondCollectionPage>(`${BONDS_PATH}/collections/${encodeURIComponent(slug)}?${params}`);
 }

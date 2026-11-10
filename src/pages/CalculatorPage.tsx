@@ -7,12 +7,19 @@ import { BondSearch } from '../components/BondSearch';
 import { ErrorState } from '../components/ErrorState';
 import { ProfitCalculator } from '../components/ProfitCalculator';
 import { RiskBadge } from '../components/RiskBadge';
+import { usePageMeta } from '../lib/seo';
 import { couponTypeLabel, formatDate, formatMoney, formatPercent, formatSector, formatTimeToMaturity } from '../lib/format';
 
 /** Калькулятор дохода: выбор облигации поиском, её основные показатели и расчёт дохода за период владения */
 export function CalculatorPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const ticker = searchParams.get('ticker');
+  usePageMeta({
+    title: 'Калькулятор дохода по облигации',
+    description:
+      'Доход по облигации за период владения: купоны, погашения номинала, продажа, НДФЛ 13 или 15% и сравнение с вкладом.',
+    canonicalPath: '/calculator',
+  });
 
   return (
     <Stack gap="lg">

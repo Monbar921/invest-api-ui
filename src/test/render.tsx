@@ -62,6 +62,8 @@ const SIDE_REQUESTS: [RegExp, unknown][] = [
   ],
   [/\/api\/bonds\/(news|[^/]+\/news)\?/, EMPTY_NEWS_PAGE],
   [/\/api\/bonds\/[^/]+\/events$/, []],
+  // ссылки на подборки над списком облигаций
+  [/\/api\/bonds\/collections$/, []],
   // колокольчики уведомлений в таблице и карточке: все правила пользователя одним запросом
   [/\/api\/alerts$/, []],
 ];

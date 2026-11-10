@@ -54,6 +54,37 @@ export interface Bond {
   offerDate: string | null;
   /** Номинал гасится частями */
   amortizationFlag: boolean;
+  /** Эмитент по данным Мосбиржи - только в карточке облигации; null - неизвестен */
+  issuer?: IssuerRef | null;
+}
+
+/** Эмитент выпуска - для ссылки на его страницу */
+export interface IssuerRef {
+  /** id эмитента на Мосбирже */
+  id: number;
+  /** «ПАО "Селигдар"» */
+  shortTitle: string | null;
+}
+
+/** Эмитент с выпусками из системы (по дате погашения) */
+export interface Issuer {
+  id: number;
+  /** Полное название: «Публичное акционерное общество "Селигдар"» */
+  title: string | null;
+  shortTitle: string | null;
+  inn: string | null;
+  bonds: Bond[];
+}
+
+/** Подборка облигаций на готовом фильтре */
+export interface BondCollection {
+  slug: string;
+  title: string;
+  description: string;
+}
+
+export interface BondCollectionPage extends BondCollection {
+  bonds: Page<Bond>;
 }
 
 export interface Page<T> {
@@ -97,6 +128,8 @@ export interface BondParameters {
   isOfz?: boolean;
   /** true - только постоянный купон, false - только переменный (флоатеры) */
   isFixedCoupon?: boolean;
+  /** Дата погашения в диапазоне (YYYY-MM-DD, включительно); облигация без даты погашения не подходит */
+  maturityDate?: { from?: string; to?: string };
 }
 
 /** Облигация в результатах поиска - только общие сведения */

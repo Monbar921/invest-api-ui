@@ -15,6 +15,14 @@ export const router = createBrowserRouter([
         lazy: () => import('./pages/BondPage').then((module) => ({ Component: module.BondPage })),
       },
       {
+        path: 'issuers/:id',
+        lazy: () => import('./pages/IssuerPage').then((module) => ({ Component: module.IssuerPage })),
+      },
+      {
+        path: 'collections/:slug',
+        lazy: () => import('./pages/CollectionPage').then((module) => ({ Component: module.CollectionPage })),
+      },
+      {
         path: 'alerts',
         lazy: () => import('./pages/AlertsPage').then((module) => ({ Component: module.AlertsPage })),
       },

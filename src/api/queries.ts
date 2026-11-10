@@ -6,6 +6,10 @@ import {
   fetchBondNews,
   fetchBondsPage,
   fetchCandles,
+  fetchCollection,
+  fetchCollections,
+  fetchIssuer,
+  fetchIssuerNews,
   fetchMarketOverview,
   fetchNews,
   searchBonds,
@@ -45,6 +49,10 @@ export const bondKeys = {
     [...bondKeys.all, 'candles', ticker, interval, from ?? 'all'] as const,
   events: (ticker: string) => [...bondKeys.all, 'events', ticker] as const,
   bondNews: (ticker: string) => [...bondKeys.all, 'news', ticker] as const,
+  issuer: (id: number) => [...bondKeys.all, 'issuer', id] as const,
+  issuerNews: (id: number) => [...bondKeys.all, 'issuer', id, 'news'] as const,
+  collections: () => [...bondKeys.all, 'collections'] as const,
+  collection: (slug: string, page: number, size: number) => [...bondKeys.all, 'collection', slug, page, size] as const,
 };
 
 export const newsKeys = {
@@ -78,6 +86,43 @@ export function useBond(ticker: string) {
     queryFn: () => fetchBond(ticker),
     // 404 повторять бессмысленно
     retry: (failureCount, error) => !(error instanceof ApiError && error.status === 404) && failureCount < 2,
+  });
+}
+
+const notFoundNoRetry = (failureCount: number, error: Error) =>
+  !(error instanceof ApiError && error.status === 404) && failureCount < 2;
+
+export function useIssuer(id: number) {
+  return useQuery({
+    queryKey: bondKeys.issuer(id),
+    queryFn: () => fetchIssuer(id),
+    enabled: Number.isInteger(id) && id > 0,
+    retry: notFoundNoRetry,
+  });
+}
+
+export function useIssuerNews(id: number) {
+  return useInfiniteQuery({
+    queryKey: bondKeys.issuerNews(id),
+    queryFn: ({ pageParam }) => fetchIssuerNews(id, pageParam, NEWS_PAGE_SIZE),
+    initialPageParam: 0,
+    getNextPageParam: nextNewsPage,
+    staleTime: NEWS_STALE_TIME,
+    enabled: Number.isInteger(id) && id > 0,
+  });
+}
+
+/** Подборки меняются только с выкладкой бэка */
+export function useCollections() {
+  return useQuery({ queryKey: bondKeys.collections(), queryFn: fetchCollections, staleTime: Infinity });
+}
+
+export function useCollection(slug: string, page: number, size: number) {
+  return useQuery({
+    queryKey: bondKeys.collection(slug, page, size),
+    queryFn: () => fetchCollection(slug, page, size),
+    placeholderData: keepPreviousData,
+    retry: notFoundNoRetry,
   });
 }
 

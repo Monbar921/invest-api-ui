@@ -31,6 +31,7 @@ import { ErrorState } from '../components/ErrorState';
 import { LoginRequired } from '../components/LoginRequired';
 import { NumberField } from '../components/NumberField';
 import { isIsoDate, todayIso } from '../lib/dates';
+import { usePageMeta } from '../lib/seo';
 import { formatChange, formatDate, formatMoney, formatNumber, formatPercent, isRubCurrency, plural } from '../lib/format';
 
 /** Облигация, выбранная заранее: «+» в строке облигации открывает новую покупку уже с ней */
@@ -44,6 +45,7 @@ interface PresetBond {
 /** «Портфель»: покупки облигаций - строкой на облигацию, их текущая стоимость и доход от цены покупки */
 export function PortfolioPage() {
   const { authenticated } = useSession();
+  usePageMeta({ title: 'Портфель', noindex: true });
   return authenticated ? (
     <Portfolio />
   ) : (

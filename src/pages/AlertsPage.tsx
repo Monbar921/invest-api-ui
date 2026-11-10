@@ -24,10 +24,12 @@ import { ErrorState } from '../components/ErrorState';
 import { LoginRequired } from '../components/LoginRequired';
 import { describeAlert, KEY_RATE_ALERT, NOTIFICATION_STATUSES } from '../lib/alerts';
 import { formatDateTime } from '../lib/format';
+import { usePageMeta } from '../lib/seo';
 
 /** «Уведомления»: правила по облигациям и история отправленного */
 export function AlertsPage() {
   const { authenticated } = useSession();
+  usePageMeta({ title: 'Уведомления', noindex: true });
   if (!authenticated) {
     return (
       <LoginRequired
