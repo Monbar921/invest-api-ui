@@ -2,11 +2,18 @@
 // session cookie и XSRF-TOKEN gateway работают только для same-origin запросов
 const API_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 
-/**
- * Старт OAuth2-логина на gateway: он перекинет на Keycloak и после входа вернёт на главную.
- * Тот же путь - в проверке сессии в index.html: без сессии туда уходят ещё до загрузки приложения.
- */
+/** Старт OAuth2-логина на gateway: он перекинет на Keycloak и после входа вернёт на страницу из returnTo */
 export const LOGIN_PATH = '/oauth2/authorization/keycloak';
+
+/** Адрес входа с возвратом на текущую страницу (путь и query; gateway принимает только пути своего origin) */
+export function loginUrl(returnTo = `${window.location.pathname}${window.location.search}`): string {
+  return `${API_URL}${LOGIN_PATH}?${new URLSearchParams({ returnTo })}`;
+}
+
+/** Вход: уходим на Keycloak, после входа gateway вернёт на эту же страницу */
+export function login(): void {
+  window.location.assign(loginUrl());
+}
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
@@ -39,8 +46,8 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   if (response.status === 401) {
-    // сессии на gateway нет или она истекла - уходим на логин, страница перезагрузится после входа
-    window.location.assign(LOGIN_PATH);
+    // личные данные запрашиваются только с сессией (useSession), значит она истекла - входим заново и возвращаемся сюда
+    login();
     throw new ApiError(401, 'Требуется вход');
   }
 

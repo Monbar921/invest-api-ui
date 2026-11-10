@@ -1,6 +1,7 @@
 import { MantineProvider } from '@mantine/core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from 'react-router';
+import { type Session, SessionContext } from './api/session';
 import { router } from './router';
 import { theme } from './theme';
 
@@ -14,11 +15,13 @@ const queryClient = new QueryClient({
   },
 });
 
-export function App() {
+export function App({ session }: { session: Session }) {
   return (
     <MantineProvider theme={theme} defaultColorScheme="auto">
       <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
+        <SessionContext value={session}>
+          <RouterProvider router={router} />
+        </SessionContext>
       </QueryClientProvider>
     </MantineProvider>
   );

@@ -2,14 +2,17 @@ import { ActionIcon, Modal, Stack, Tooltip } from '@mantine/core';
 import { IconBell, IconBellFilled } from '@tabler/icons-react';
 import { useState } from 'react';
 import { useAlerts } from '../api/queries';
+import { useSession } from '../api/session';
 import { BondAlertsPanel, TelegramRequiredHint } from './BondAlertsPanel';
+import { LoginRequired } from './LoginRequired';
 
 /**
- * Колокольчик облигации: залит, если есть включённые уведомления; по нажатию - их настройка.
+ * Колокольчик облигации: залит, если есть включённые уведомления; по нажатию - их настройка, у гостя - предложение войти.
  * Нажатие не всплывает: строка таблицы и сама открывает карточку.
  */
 export function BondAlertsButton({ ticker, name }: { ticker: string; name: string | null }) {
   const [opened, setOpened] = useState(false);
+  const { authenticated } = useSession();
   const alerts = useAlerts();
   const active = alerts.data?.some((alert) => alert.ticker === ticker && alert.enabled) ?? false;
   const label = active ? 'Уведомления включены' : 'Уведомления';
@@ -37,12 +40,15 @@ export function BondAlertsButton({ ticker, name }: { ticker: string; name: strin
         // клик внутри окна не должен открывать карточку из строки таблицы под ним
         onClick={(event) => event.stopPropagation()}
       >
-        {opened && (
-          <Stack gap="md">
-            <TelegramRequiredHint />
-            <BondAlertsPanel ticker={ticker} />
-          </Stack>
-        )}
+        {opened &&
+          (authenticated ? (
+            <Stack gap="md">
+              <TelegramRequiredHint />
+              <BondAlertsPanel ticker={ticker} />
+            </Stack>
+          ) : (
+            <LoginRequired text="Войдите, чтобы получать в Telegram уведомления о купонах, оферте, погашении, цене и новостях этой облигации." />
+          ))}
       </Modal>
     </>
   );

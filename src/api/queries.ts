@@ -11,6 +11,7 @@ import {
   searchBonds,
 } from './bonds';
 import { ApiError } from './client';
+import { useSession } from './session';
 import {
   type AlertChanges,
   type AlertRule,
@@ -162,10 +163,11 @@ const TELEGRAM_LINK_POLL_INTERVAL = 3000;
  * Статус Telegram. Запрашивается только когда открыта панель (enabled), а пока ждём привязку - каждые 3 секунды.
  */
 export function useTelegramStatus(enabled: boolean, waitingForLink: boolean) {
+  const { authenticated } = useSession();
   return useQuery({
     queryKey: telegramKeys.status,
     queryFn: fetchTelegramStatus,
-    enabled,
+    enabled: enabled && authenticated,
     refetchInterval: (query) => (waitingForLink && query.state.data?.linked !== true ? TELEGRAM_LINK_POLL_INTERVAL : false),
   });
 }
@@ -196,11 +198,15 @@ export const NOTIFICATIONS_PAGE_SIZE = 20;
  * берут их отсюда - таблица на 50 строк не делает 50 запросов.
  */
 export function useAlerts() {
-  return useQuery({ queryKey: alertKeys.list(), queryFn: fetchAlerts });
+  // у гостя правил нет: без сессии gateway ответил бы 401
+  const { authenticated } = useSession();
+  return useQuery({ queryKey: alertKeys.list(), queryFn: fetchAlerts, enabled: authenticated });
 }
 
 export function useNotifications() {
+  const { authenticated } = useSession();
   return useInfiniteQuery({
+    enabled: authenticated,
     queryKey: alertKeys.notifications(),
     queryFn: ({ pageParam }) => fetchNotifications(pageParam, NOTIFICATIONS_PAGE_SIZE),
     initialPageParam: 0,
@@ -231,11 +237,13 @@ export const portfolioKeys = {
 
 /** Портфель с текущими ценами; цены на бэке обновляются в течение дня - перечитываем при возврате на вкладку */
 export function usePortfolio() {
-  return useQuery({ queryKey: portfolioKeys.positions(), queryFn: fetchPortfolio });
+  const { authenticated } = useSession();
+  return useQuery({ queryKey: portfolioKeys.positions(), queryFn: fetchPortfolio, enabled: authenticated });
 }
 
 export function useBrokers() {
-  return useQuery({ queryKey: portfolioKeys.brokers(), queryFn: fetchBrokers });
+  const { authenticated } = useSession();
+  return useQuery({ queryKey: portfolioKeys.brokers(), queryFn: fetchBrokers, enabled: authenticated });
 }
 
 /**

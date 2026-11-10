@@ -14,7 +14,8 @@ TanStack Query - запросы и кэш, React Router - маршруты.
 
 | Папка / файл                         | Что                                                                                                                                                                                                                                                                                          |
 | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `api/client.ts`                      | `fetch`-обёртка: same-origin cookie, CSRF-заголовок, 401 → логин, ошибки ProblemDetail                                                                                                                                                                                                       |
+| `api/client.ts`                      | `fetch`-обёртка: same-origin cookie, CSRF-заголовок, 401 → логин с возвратом, ошибки ProblemDetail; `login()`, `logout()`                                                                                                                                                                    |
+| `api/session.ts`                     | состояние входа (`SessionContext`, `useSession`) из `GET /api/session`                                                                                                                                                                                                                       |
 | `api/bonds.ts`                       | запросы к `/api/bonds/...`                                                                                                                                                                                                                                                                   |
 | `api/alerts.ts`                      | запросы к `/api/alerts`: правила уведомлений, история                                                                                                                                                                                                                                        |
 | `api/portfolio.ts`                   | запросы к `/api/portfolio`: портфель, добавление, изменение и удаление покупки                                                                                                                                                                                                               |
@@ -23,7 +24,7 @@ TanStack Query - запросы и кэш, React Router - маршруты.
 | `api/types.ts`                       | типы ответов, вручную повторяют DTO из `invest-api-dto`                                                                                                                                                                                                                                      |
 | `pages/`                             | `BondsPage`, `BondPage`, `AlertsPage`, `PortfolioPage`, `CalculatorPage`, `NotFoundPage`                                                                                                                                                                                                     |
 | `components/`                        | таблица, фильтры, график выплат, бейдж риска, состояние ошибки; лента новостей (`NewsFeed`, `NewsList`, `MarketOverviewCard`), события и новости облигации (`BondEventsAndNews`); поле числа `NumberField` (держит набранный текст, пока число не дописано, дробь - через запятую или точку) |
-| `layout/`                            | `AppLayout`: шапка, кнопка Telegram (`components/TelegramConnect`), тема, выход                                                                                                                                                                                                              |
+| `layout/`                            | `AppLayout`: шапка, кнопка Telegram (`components/TelegramConnect`), тема, выход; у гостя - «Войти»                                                                                                                                                                                           |
 | `lib/`                               | состояние таблицы в URL (`bondSearchParams`), форматирование денег, дат, риска; разбор набранного числа (`numbers.ts`)                                                                                                                                                                       |
 | `router.tsx`, `theme.ts`, `main.tsx` | маршруты, тема Mantine, точка входа                                                                                                                                                                                                                                                          |
 
@@ -81,6 +82,7 @@ TanStack Query - запросы и кэш, React Router - маршруты.
 | `GET /api/bonds/market-overview`                                                | ключевая ставка и курсы                         |
 | `GET /api/bonds/{ticker}/events`                                                | события облигации                               |
 | `GET /api/bonds/{ticker}/news?page=&size=`                                      | новости облигации                               |
+| `GET /api/session`                                                              | состояние входа (отвечает сам gateway)          |
 | `GET /api/alerts/telegram`                                                      | статус Telegram пользователя                    |
 | `POST /api/alerts/telegram/link-token`                                          | одноразовая ссылка привязки на 10 минут         |
 | `GET /api/alerts`                                                               | все правила уведомлений пользователя            |
@@ -98,15 +100,24 @@ session cookie и `XSRF-TOKEN` не работают. `VITE_API_URL` нужен,
 
 ## Авторизация
 
-- Сессия проверяется до загрузки приложения: обычный скрипт в `index.html` сразу запрашивает
-  `GET /api/bonds/search?query=&limit=1` (без сессии gateway отвечает `401` сам, с сессией - пустой список) и при `401`
-  уходит на `/oauth2/authorization/keycloak` через `location.replace`. `main.tsx` рендерит приложение только после
-  ответа (`window.investSessionCheck`). Раньше без сессии браузер грузил весь бандл, рисовал пустую страницу и уходил
-  на логин только после `401` от её запросов - несколько секунд пользователь видел приложение без данных.
-  Сеть недоступна - приложение рисуется и показывает ошибку своих запросов.
-- Ответ `401` на любой запрос позже (сессия истекла) - `client.ts` уходит на `/oauth2/authorization/keycloak`, после
-  входа gateway вернёт обратно.
-- Изменяющие запросы (не GET/HEAD/OPTIONS) отправляют значение cookie `XSRF-TOKEN` в заголовке `X-XSRF-TOKEN`.
+Облигации, лента, карточка и калькулятор открыты без входа (публичный режим gateway, [INVEST-001-public-mode](../../invest-api/docs/features/INVEST-001-public-mode/));
+портфель и уведомления - только после входа.
+
+- Состояние входа узнаётся до загрузки приложения: обычный скрипт в `index.html` сразу запрашивает `GET /api/session`
+  (отвечает сам gateway, всегда `200`: `{authenticated, username}`), `main.tsx` ждёт ответ (`window.investSession`) и
+  кладёт его в `SessionContext` (`api/session.ts`, хук `useSession`). За время жизни страницы оно не меняется: вход и
+  выход - переходы на Keycloak и обратно. Ответа нет (сеть, gateway недоступны) - приложение рисуется для гостя.
+- Гость: в шапке «Войти» вместо кнопки Telegram и выхода; «Портфель» и «Уведомления» показывают `LoginRequired` - что
+  здесь будет и «Войти»; колокольчик облигации открывает окно с тем же предложением. Хуки личных данных
+  (`useAlerts`, `useNotifications`, `usePortfolio`, `useBrokers`, `useTelegramStatus`) у гостя выключены - он не
+  получает `401`.
+- Вход - `login()`: `/oauth2/authorization/keycloak?returnTo=<путь и query текущей страницы>`, после входа gateway
+  возвращает на ту же страницу.
+- Ответ `401` на любой запрос (сессия истекла) - `client.ts` вызывает `login()`.
+- Анонимные запросы ограничены по IP (gateway отвечает `429`) - пользователь видит обычную ошибку запроса с текстом
+  от gateway.
+- Изменяющие запросы (не GET/HEAD/OPTIONS) отправляют значение cookie `XSRF-TOKEN` в заголовке `X-XSRF-TOKEN` - и у
+  гостя (POST страницы облигаций и расчёта калькулятора): cookie ставит gateway уже на ответ `/api/session`.
 - Выход - `POST /logout`, gateway отвечает `202` с адресом выхода из Keycloak в `Location`, UI переходит туда.
 
 ## Состояние таблицы в URL

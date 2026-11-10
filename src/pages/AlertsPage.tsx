@@ -19,12 +19,23 @@ import { Link } from 'react-router';
 import { useAlertMutations, useAlerts, useNotifications } from '../api/queries';
 import type { Alert } from '../api/types';
 import { BondAlertsPanel, EventSwitch, TelegramRequiredHint } from '../components/BondAlertsPanel';
+import { useSession } from '../api/session';
 import { ErrorState } from '../components/ErrorState';
+import { LoginRequired } from '../components/LoginRequired';
 import { describeAlert, KEY_RATE_ALERT, NOTIFICATION_STATUSES } from '../lib/alerts';
 import { formatDateTime } from '../lib/format';
 
 /** «Уведомления»: правила по облигациям и история отправленного */
 export function AlertsPage() {
+  const { authenticated } = useSession();
+  if (!authenticated) {
+    return (
+      <LoginRequired
+        title="Уведомления"
+        text="Войдите, чтобы получать в Telegram уведомления о купонах, офертах, погашениях, цене облигаций и решениях Банка России по ключевой ставке."
+      />
+    );
+  }
   return (
     <Stack gap="lg">
       <Title order={2}>Уведомления</Title>

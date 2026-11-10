@@ -5,21 +5,21 @@ import 'mantine-datatable/styles.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { parseSession } from './api/session';
 
 declare global {
   interface Window {
-    /** Проверка сессии из index.html: false - уже уходим на логин, приложение не рисуем */
-    investSessionCheck?: Promise<boolean>;
+    /** Ответ GET /api/session из index.html; null - не удалось узнать (рисуем для гостя) */
+    investSession?: Promise<unknown>;
   }
 }
 
-void (window.investSessionCheck ?? Promise.resolve(true)).then((authorized) => {
-  if (!authorized) {
-    return;
-  }
-  createRoot(document.getElementById('root')!).render(
-    <StrictMode>
-      <App />
-    </StrictMode>,
-  );
-});
+void (window.investSession ?? Promise.resolve(null))
+  .catch(() => null)
+  .then((body) => {
+    createRoot(document.getElementById('root')!).render(
+      <StrictMode>
+        <App session={parseSession(body)} />
+      </StrictMode>,
+    );
+  });

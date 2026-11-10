@@ -17,3 +17,4 @@
 - [INVEST-001-revenue-calculator](../../invest-api/docs/features/INVEST-001-revenue-calculator/) - калькулятор дохода
 - [INVEST-001-price-chart](../../invest-api/docs/features/INVEST-001-price-chart/) - график цены
 - [INVEST-001-news](../../invest-api/docs/features/INVEST-001-news/) - лента новостей, события и новости облигации
+- [INVEST-001-public-mode](../../invest-api/docs/features/INVEST-001-public-mode/) - гость: облигации без входа, «Войти», возврат на ту же страницу

@@ -3,10 +3,17 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
+import { type Session, SessionContext } from '../api/session';
 import { theme } from '../theme';
 
-/** Рендерит элемент по маршруту path, как если бы пользователь открыл url */
-export function renderRoute(element: ReactElement, { path, url }: { path: string; url: string }) {
+/** Вошедший пользователь - так рендерятся страницы в тестах, если session не задана */
+export const USER: Session = { authenticated: true, username: 'ivan' };
+
+/** Рендерит элемент по маршруту path, как если бы пользователь открыл url; session - кто открыл (по умолчанию вошедший) */
+export function renderRoute(
+  element: ReactElement,
+  { path, url, session = USER }: { path: string; url: string; session?: Session },
+) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
@@ -21,7 +28,9 @@ export function renderRoute(element: ReactElement, { path, url }: { path: string
     ...render(
       <MantineProvider theme={theme}>
         <QueryClientProvider client={queryClient}>
-          <RouterProvider router={router} />
+          <SessionContext value={session}>
+            <RouterProvider router={router} />
+          </SessionContext>
         </QueryClientProvider>
       </MantineProvider>,
     ),

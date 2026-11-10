@@ -26,7 +26,9 @@ import { bondKeys, usePortfolio, usePortfolioMutations } from '../api/queries';
 import type { PortfolioGroup, PortfolioPosition, PortfolioPositionRequest, PortfolioSummary, PortfolioTotal } from '../api/types';
 import { BondSearch } from '../components/BondSearch';
 import { BrokerSelect } from '../components/BrokerSelect';
+import { useSession } from '../api/session';
 import { ErrorState } from '../components/ErrorState';
+import { LoginRequired } from '../components/LoginRequired';
 import { NumberField } from '../components/NumberField';
 import { isIsoDate, todayIso } from '../lib/dates';
 import { formatChange, formatDate, formatMoney, formatNumber, formatPercent, isRubCurrency, plural } from '../lib/format';
@@ -41,6 +43,18 @@ interface PresetBond {
 
 /** «Портфель»: покупки облигаций - строкой на облигацию, их текущая стоимость и доход от цены покупки */
 export function PortfolioPage() {
+  const { authenticated } = useSession();
+  return authenticated ? (
+    <Portfolio />
+  ) : (
+    <LoginRequired
+      title="Портфель"
+      text="Войдите, чтобы вести свои покупки облигаций: текущая стоимость, доход и доходность по каждой бумаге и по всему портфелю."
+    />
+  );
+}
+
+function Portfolio() {
   const portfolio = usePortfolio();
   const [adding, setAdding] = useState<{ bond?: PresetBond } | null>(null);
   const [editing, setEditing] = useState<PortfolioPosition | null>(null);

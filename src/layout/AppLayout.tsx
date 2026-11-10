@@ -10,10 +10,20 @@ import {
   useComputedColorScheme,
   useMantineColorScheme,
 } from '@mantine/core';
-import { IconBell, IconBriefcase, IconCalculator, IconChartLine, IconLogout, IconMoon, IconSun } from '@tabler/icons-react';
+import {
+  IconBell,
+  IconBriefcase,
+  IconCalculator,
+  IconChartLine,
+  IconLogin,
+  IconLogout,
+  IconMoon,
+  IconSun,
+} from '@tabler/icons-react';
 import type { ReactNode } from 'react';
 import { Link, NavLink, Outlet, useMatch } from 'react-router';
-import { logout } from '../api/client';
+import { login, logout } from '../api/client';
+import { useSession } from '../api/session';
 import { TelegramConnect } from '../components/TelegramConnect';
 
 // у списка облигаций слева лента новостей - таблице нужна ширина больше стандартного контейнера
@@ -21,6 +31,7 @@ const WIDE_PAGE_WIDTH = 1920;
 
 export function AppLayout() {
   const wide = useMatch('/bonds') != null;
+  const session = useSession();
 
   return (
     <AppShell header={{ height: 56 }} padding="md">
@@ -41,9 +52,10 @@ export function AppLayout() {
               <NavButton to="/alerts" icon={<IconBell size={18} />} label="Уведомления" />
             </Group>
             <Group gap="xs" wrap="nowrap">
-              <TelegramConnect />
+              {session.authenticated && <TelegramConnect />}
               <ColorSchemeToggle />
-              <LogoutButton />
+              {/* гость видит облигации без входа; портфель и уведомления сами предложат войти */}
+              {session.authenticated ? <LogoutButton username={session.username} /> : <LoginButton />}
             </Group>
           </Group>
         </Container>
@@ -77,13 +89,27 @@ function ColorSchemeToggle() {
   );
 }
 
-function LogoutButton() {
+function LogoutButton({ username }: { username: string | null }) {
   return (
-    <Tooltip label="Выйти">
+    <Tooltip label={username ? `Выйти (${username})` : 'Выйти'}>
       <ActionIcon variant="default" size="lg" aria-label="Выйти" onClick={() => void logout()}>
         <IconLogout size={18} />
       </ActionIcon>
     </Tooltip>
+  );
+}
+
+/** Вход с возвратом на текущую страницу */
+function LoginButton() {
+  return (
+    <>
+      <Button leftSection={<IconLogin size={18} />} onClick={login} visibleFrom="xs">
+        Войти
+      </Button>
+      <ActionIcon size="lg" aria-label="Войти" onClick={login} hiddenFrom="xs">
+        <IconLogin size={18} />
+      </ActionIcon>
+    </>
   );
 }
 
