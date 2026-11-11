@@ -93,7 +93,9 @@ function mockApi() {
         ? [] // свечи графика в карточке облигации
         : url.endsWith('/calculation')
           ? calculation
-          : bond;
+          : url.endsWith('/broker-links')
+            ? [] // блок «Купить у брокера» без партнёров
+            : bond;
     return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
   });
   return calls;
@@ -152,7 +154,11 @@ describe('CalculatorPage', () => {
 
   it('без налога не показывает НДФЛ и доход после налога', async () => {
     vi.stubGlobal('fetch', async (url: string) => {
-      const body = url.endsWith('/calculation') ? { ...calculation, taxRatePercent: null, tax: 0, netProfit: 584.49 } : bond;
+      const body = url.endsWith('/calculation')
+        ? { ...calculation, taxRatePercent: null, tax: 0, netProfit: 584.49 }
+        : url.endsWith('/broker-links')
+          ? []
+          : bond;
       return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
     });
     renderRoute(<CalculatorPage />, { path: '/calculator', url: '/calculator?ticker=RU000A10DCK7' });
@@ -169,7 +175,9 @@ describe('CalculatorPage', () => {
         ? { keyRate: 16.5, currencies: [] }
         : url.endsWith('/calculation')
           ? { ...calculation, depositRatePercent: 16.5, depositProfit: 657.25, depositTax: 85.44, depositNetProfit: 571.76 }
-          : bond;
+          : url.endsWith('/broker-links')
+            ? []
+            : bond;
       return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
     });
     renderRoute(<CalculatorPage />, { path: '/calculator', url: '/calculator?ticker=RU000A10DCK7' });
@@ -219,7 +227,11 @@ describe('CalculatorPage', () => {
 
   it('«В оферту» недоступна, если оферта не позже даты покупки', async () => {
     vi.stubGlobal('fetch', async (url: string) => {
-      const body = url.endsWith('/calculation') ? calculation : { ...bond, offerDate: '2028-03-01T00:00:00Z' };
+      const body = url.endsWith('/calculation')
+        ? calculation
+        : url.endsWith('/broker-links')
+          ? []
+          : { ...bond, offerDate: '2028-03-01T00:00:00Z' };
       return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
     });
     renderRoute(<CalculatorPage />, { path: '/calculator', url: '/calculator?ticker=RU000A10DCK7' });

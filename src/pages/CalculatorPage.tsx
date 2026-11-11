@@ -4,6 +4,7 @@ import { ApiError } from '../api/client';
 import { useBond } from '../api/queries';
 import type { Bond } from '../api/types';
 import { BondSearch } from '../components/BondSearch';
+import { BrokerLinks } from '../components/BrokerLinks';
 import { ErrorState } from '../components/ErrorState';
 import { ProfitCalculator } from '../components/ProfitCalculator';
 import { RiskBadge } from '../components/RiskBadge';
@@ -59,6 +60,7 @@ function SelectedBond({ ticker, onChange }: { ticker: string; onChange: (ticker:
           <BondSummary bond={query.data} />
           {/* key: форма другой облигации начинается с её цены и дат */}
           <ProfitCalculator key={query.data.ticker} bond={query.data} />
+          <BrokerLinks ticker={query.data.ticker} />
         </>
       )}
     </Stack>

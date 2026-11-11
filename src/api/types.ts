@@ -498,6 +498,17 @@ export interface PortfolioPositionRequest {
   buyAmountRub?: number;
 }
 
+/** Ссылка на покупку облигации у брокера-партнёра. Это реклама: показывается с пометкой, рекламодателем и erid */
+export interface BrokerLink {
+  partnerId: string;
+  name: string;
+  url: string;
+  /** Рекламодатель: наименование и ИНН */
+  advertiser: string;
+  /** Токен рекламы из ЕРИР */
+  erid: string | null;
+}
+
 /** Брокер пользователя - метка покупки */
 export interface Broker {
   id: number;

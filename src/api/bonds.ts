@@ -7,6 +7,7 @@ import type {
   BondParameters,
   BondScope,
   BondSearchItem,
+  BrokerLink,
   Candle,
   CandleInterval,
   Issuer,
@@ -90,4 +91,17 @@ export function fetchCollections(): Promise<BondCollection[]> {
 export function fetchCollection(slug: string, page: number, size: number): Promise<BondCollectionPage> {
   const params = new URLSearchParams({ page: String(page), size: String(size) });
   return request<BondCollectionPage>(`${BONDS_PATH}/collections/${encodeURIComponent(slug)}?${params}`);
+}
+
+/** Ссылки брокеров-партнёров для облигации; партнёров нет - пустой список */
+export function fetchBrokerLinks(ticker: string): Promise<BrokerLink[]> {
+  return request<BrokerLink[]>(`${BONDS_PATH}/${encodeURIComponent(ticker)}/broker-links`);
+}
+
+/** Учёт перехода к партнёру. keepalive: запрос доходит, даже если вкладка уже уходит по ссылке */
+export function registerBrokerClick(ticker: string, partnerId: string): Promise<void> {
+  return request<void>(`${BONDS_PATH}/${encodeURIComponent(ticker)}/broker-links/${encodeURIComponent(partnerId)}/click`, {
+    method: 'POST',
+    keepalive: true,
+  });
 }

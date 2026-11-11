@@ -18,4 +18,5 @@
 - [INVEST-001-price-chart](../../invest-api/docs/features/INVEST-001-price-chart/) - график цены
 - [INVEST-001-news](../../invest-api/docs/features/INVEST-001-news/) - лента новостей, события и новости облигации
 - [INVEST-001-public-mode](../../invest-api/docs/features/INVEST-001-public-mode/) - гость: облигации без входа, «Войти», возврат на ту же страницу
+- [INVEST-001-broker-referral](../../invest-api/docs/features/INVEST-001-broker-referral/) - блок «Купить у брокера» в карточке и калькуляторе, учёт переходов
 - [INVEST-001-seo-pages](../../invest-api/docs/features/INVEST-001-seo-pages/) - метаданные страниц, страницы эмитента и подборок

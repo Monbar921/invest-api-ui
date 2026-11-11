@@ -6,6 +6,7 @@ import { useBond } from '../api/queries';
 import type { Bond, Coupon } from '../api/types';
 import { BondEventsAndNews } from '../components/BondEventsAndNews';
 import { BondPriceChart } from '../components/BondPriceChart';
+import { BrokerLinks } from '../components/BrokerLinks';
 import { CouponSchedule } from '../components/CouponSchedule';
 import { ErrorState } from '../components/ErrorState';
 import { RiskBadge } from '../components/RiskBadge';
@@ -132,6 +133,8 @@ function BondDetails({ bond }: { bond: Bond }) {
         />
         <Stat label="Погашение" value={formatDate(bond.maturityDate)} hint={formatTimeToMaturity(bond.maturityDate)} />
       </SimpleGrid>
+
+      <BrokerLinks ticker={bond.ticker} />
 
       <BondPriceChart ticker={bond.ticker} />
 

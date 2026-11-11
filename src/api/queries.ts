@@ -5,6 +5,7 @@ import {
   fetchBondEvents,
   fetchBondNews,
   fetchBondsPage,
+  fetchBrokerLinks,
   fetchCandles,
   fetchCollection,
   fetchCollections,
@@ -12,6 +13,7 @@ import {
   fetchIssuerNews,
   fetchMarketOverview,
   fetchNews,
+  registerBrokerClick,
   searchBonds,
 } from './bonds';
 import { ApiError } from './client';
@@ -49,6 +51,7 @@ export const bondKeys = {
     [...bondKeys.all, 'candles', ticker, interval, from ?? 'all'] as const,
   events: (ticker: string) => [...bondKeys.all, 'events', ticker] as const,
   bondNews: (ticker: string) => [...bondKeys.all, 'news', ticker] as const,
+  brokerLinks: (ticker: string) => [...bondKeys.all, 'broker-links', ticker] as const,
   issuer: (id: number) => [...bondKeys.all, 'issuer', id] as const,
   issuerNews: (id: number) => [...bondKeys.all, 'issuer', id, 'news'] as const,
   collections: () => [...bondKeys.all, 'collections'] as const,
@@ -124,6 +127,21 @@ export function useCollection(slug: string, page: number, size: number) {
     placeholderData: keepPreviousData,
     retry: notFoundNoRetry,
   });
+}
+
+/** Партнёры меняются только с настройкой бэка; ошибку не повторяем - блок рекламы просто не показывается */
+export function useBrokerLinks(ticker: string) {
+  return useQuery({
+    queryKey: bondKeys.brokerLinks(ticker),
+    queryFn: () => fetchBrokerLinks(ticker),
+    staleTime: 10 * 60 * 1000,
+    retry: false,
+  });
+}
+
+/** Клик по ссылке партнёра; сбой учёта не мешает переходу и пользователю не показывается */
+export function useBrokerClick(ticker: string) {
+  return useMutation({ mutationFn: (partnerId: string) => registerBrokerClick(ticker, partnerId) });
 }
 
 export function useBondSearch(query: string) {
