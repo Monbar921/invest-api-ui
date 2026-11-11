@@ -1,4 +1,5 @@
 import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { Bond, BondCollectionPage, Issuer } from '../api/types';
 import { applyPageMeta } from '../lib/seo';
 import { EMPTY_NEWS_PAGE, mockFetchByUrl, renderRoute } from '../test/render';
@@ -176,5 +177,120 @@ describe('метаданные страниц', () => {
     expect(document.head.querySelectorAll('link[rel="canonical"]')).toHaveLength(0);
     expect(meta('robots')).toBe('noindex');
     expect(document.title).toBe('B - Облигации');
+  });
+});
+
+describe('метаданные: краевые случаи', () => {
+  // как отдаёт gateway: SEO-страница уже с метаданными
+  const gatewayHead = () => {
+    document.head.innerHTML =
+      '<title>От gateway</title><meta name="description" content="Описание gateway" />' +
+      '<link rel="canonical" href="http://localhost:3000/issuers/42" />' +
+      '<meta property="og:url" content="http://localhost:3000/issuers/42" />';
+    document.title = 'От gateway';
+  };
+
+  it('пока данные грузятся, метаданные от gateway не трогаются', async () => {
+    gatewayHead();
+    // ответа нет - страница остаётся в загрузке
+    vi.stubGlobal('fetch', () => new Promise(() => {}));
+
+    renderRoute(<IssuerPage />, { path: '/issuers/:id', url: '/issuers/42' });
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(document.title).toBe('От gateway');
+    expect(meta('description')).toBe('Описание gateway');
+    expect(canonical()).toBe('http://localhost:3000/issuers/42');
+  });
+
+  it('теги от gateway обновляются на месте, без дублей', async () => {
+    gatewayHead();
+    mockFetchByUrl([[/\/api\/bonds\/issuers\/42$/, issuer]]);
+
+    renderRoute(<IssuerPage />, { path: '/issuers/:id', url: '/issuers/42' });
+
+    await waitFor(() => expect(document.title).toBe('ПАО "Селигдар" - облигации эмитента - Облигации'));
+    expect(document.head.querySelectorAll('meta[name="description"]')).toHaveLength(1);
+    expect(document.head.querySelectorAll('link[rel="canonical"]')).toHaveLength(1);
+    expect(document.head.querySelectorAll('meta[property="og:url"]')).toHaveLength(1);
+    expect(meta('description')).toContain('ПАО "Селигдар"');
+  });
+
+  it('эмитент без названий - «Эмитент <id>», без ИНН', async () => {
+    mockFetchByUrl([[/\/api\/bonds\/issuers\/42$/, { ...issuer, title: null, shortTitle: null, inn: null, bonds: [] }]]);
+
+    renderRoute(<IssuerPage />, { path: '/issuers/:id', url: '/issuers/42' });
+
+    expect(await screen.findByRole('heading', { name: 'Эмитент 42' })).toBeInTheDocument();
+    expect(screen.getByText('Выпусков в обращении нет')).toBeInTheDocument();
+    expect(screen.queryByText(/ИНН/)).not.toBeInTheDocument();
+    expect(document.title).toBe('Эмитент 42 - облигации эмитента - Облигации');
+    expect(meta('description')).toBe(
+      'Облигации эмитента Эмитент 42: выпусков в обращении - 0. Цены, доходности к погашению, даты погашения и новости эмитента.',
+    );
+  });
+
+  it('ошибка сервера на странице эмитента - сообщение с повтором, не 404 и без noindex', async () => {
+    gatewayHead();
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ title: 'Server Error' }), { status: 500 }));
+
+    renderRoute(<IssuerPage />, { path: '/issuers/:id', url: '/issuers/42' });
+
+    // 5xx запрос повторяет дважды (1 с и 2 с) - ждём дольше обычного
+    expect(await screen.findByText('Не удалось загрузить данные', {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Повторить' })).toBeInTheDocument();
+    expect(screen.queryByText('Эмитент не найден')).not.toBeInTheDocument();
+    expect(meta('robots')).toBeNull();
+    expect(document.title).toBe('От gateway');
+  }, 10_000);
+
+  it('ошибка сервера на странице подборки - сообщение с повтором, не 404', async () => {
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ title: 'Server Error' }), { status: 503 }));
+
+    renderRoute(<CollectionPage />, { path: '/collections/:slug', url: '/collections/floaters' });
+
+    expect(await screen.findByText('Не удалось загрузить данные', {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.queryByText('Такой подборки нет')).not.toBeInTheDocument();
+    expect(meta('robots')).toBeNull();
+  }, 10_000);
+
+  it('подборка: переход на страницу 2 - запрос page=1 и ?page=2 в адресе, canonical без него', async () => {
+    const page = (n: number): BondCollectionPage => ({
+      slug: 'floaters',
+      title: 'Флоатеры',
+      description: 'Переменный купон.',
+      bonds: {
+        content: [bond(`FL${n}`)],
+        page: n,
+        size: 50,
+        totalElements: 60,
+        totalPages: 2,
+      },
+    });
+    const calls = mockFetchByUrl([
+      [/\/api\/bonds\/collections\/floaters\?page=1&/, page(1)],
+      [/\/api\/bonds\/collections\/floaters\?page=0&/, page(0)],
+    ]);
+
+    // таблица при смене страницы прокручивается к началу - в jsdom scrollTo нет
+    Element.prototype.scrollTo = () => {};
+    const { router } = renderRoute(<CollectionPage />, { path: '/collections/:slug', url: '/collections/floaters' });
+
+    expect(await screen.findByRole('link', { name: 'FL0' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '2' }));
+
+    expect(await screen.findByRole('link', { name: 'FL1' })).toBeInTheDocument();
+    expect(calls).toContain('/api/bonds/collections/floaters?page=1&size=50');
+    expect(router.state.location.search).toBe('?page=2');
+    expect(canonical()).toBe('http://localhost:3000/collections/floaters');
+  });
+
+  it('неверный ?page - первая страница', async () => {
+    const calls = mockFetchByUrl([]);
+
+    renderRoute(<CollectionPage />, { path: '/collections/:slug', url: '/collections/floaters?page=-3' });
+
+    await screen.findByText('Такой подборки нет');
+    expect(calls).toContain('/api/bonds/collections/floaters?page=0&size=50');
   });
 });
