@@ -9,6 +9,7 @@ import {
   Tooltip,
   useComputedColorScheme,
   useMantineColorScheme,
+  useMatches,
 } from '@mantine/core';
 import {
   IconBell,
@@ -36,6 +37,9 @@ export function AppLayout() {
   const wide = useMatch('/bonds') != null;
   const session = useSession();
   const location = useLocation();
+  // на телефоне (375px) бренд, три раздела и до четырёх кнопок справа не помещаются с обычными отступами
+  const leftGap = useMatches({ base: 'xs', sm: 'lg' });
+  const rightGap = useMatches({ base: 4, sm: 'xs' });
 
   useEffect(() => {
     // вошедшего «/» сразу уводит на /bonds - просмотр лендинга, которого он не видел, не считаем
@@ -50,11 +54,12 @@ export function AppLayout() {
       <AppShell.Header>
         <Container size={wide ? WIDE_PAGE_WIDTH : 'xl'} h="100%">
           <Group h="100%" justify="space-between" wrap="nowrap">
-            <Group gap="lg" wrap="nowrap">
-              <Anchor component={Link} to="/bonds" underline="never" c="inherit">
+            <Group gap={leftGap} wrap="nowrap">
+              <Anchor component={Link} to="/bonds" underline="never" c="inherit" aria-label="Облигации">
                 <Group gap="xs">
                   <IconChartLine size={24} color="var(--mantine-primary-color-filled)" />
-                  <Text fw={600} size="lg">
+                  {/* на телефоне - только иконка: подпись не помещается рядом с разделами и кнопками */}
+                  <Text fw={600} size="lg" visibleFrom="sm">
                     Облигации
                   </Text>
                 </Group>
@@ -63,7 +68,7 @@ export function AppLayout() {
               <NavButton to="/calculator" icon={<IconCalculator size={18} />} label="Калькулятор" />
               <NavButton to="/alerts" icon={<IconBell size={18} />} label="Уведомления" />
             </Group>
-            <Group gap="xs" wrap="nowrap">
+            <Group gap={rightGap} wrap="nowrap">
               {session.authenticated && <TelegramConnect />}
               {session.authenticated && <PlanButton />}
               <ColorSchemeToggle />

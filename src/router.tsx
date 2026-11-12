@@ -1,5 +1,6 @@
 import { createBrowserRouter } from 'react-router';
 import { AppLayout } from './layout/AppLayout';
+import { RouteError } from './components/RouteError';
 import { BondsPage } from './pages/BondsPage';
 import { HomePage } from './pages/HomePage';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -7,6 +8,8 @@ import { NotFoundPage } from './pages/NotFoundPage';
 export const router = createBrowserRouter([
   {
     element: <AppLayout />,
+    // в том числе чанк страницы не загрузился после выкладки новой версии - RouteError перезагрузит страницу
+    errorElement: <RouteError />,
     children: [
       // гостю - лендинг, вошедшему - список облигаций
       { index: true, element: <HomePage /> },
