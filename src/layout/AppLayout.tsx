@@ -15,6 +15,7 @@ import {
   IconBriefcase,
   IconCalculator,
   IconChartLine,
+  IconCrown,
   IconLogin,
   IconLogout,
   IconMoon,
@@ -64,6 +65,7 @@ export function AppLayout() {
             </Group>
             <Group gap="xs" wrap="nowrap">
               {session.authenticated && <TelegramConnect />}
+              {session.authenticated && <PlanButton />}
               <ColorSchemeToggle />
               {/* гость видит облигации без входа; портфель и уведомления сами предложат войти */}
               {session.authenticated ? <LogoutButton username={session.username} /> : <LoginButton />}
@@ -97,6 +99,21 @@ function ColorSchemeToggle() {
       >
         {computed === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
       </ActionIcon>
+    </Tooltip>
+  );
+}
+
+/** Страница «Тариф»: лимиты и что входит */
+function PlanButton() {
+  return (
+    <Tooltip label="Тариф">
+      <NavLink to="/plan" aria-label="Тариф">
+        {({ isActive }) => (
+          <ActionIcon component="span" variant={isActive ? 'light' : 'default'} size="lg">
+            <IconCrown size={18} />
+          </ActionIcon>
+        )}
+      </NavLink>
     </Tooltip>
   );
 }

@@ -4,6 +4,7 @@ import { render } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { type Session, SessionContext } from '../api/session';
+import type { AccountPlan } from '../api/types';
 import { theme } from '../theme';
 
 /** Вошедший пользователь - так рендерятся страницы в тестах, если session не задана */
@@ -43,6 +44,26 @@ export function renderWithMantine(element: ReactElement) {
 
 export const EMPTY_NEWS_PAGE = { content: [], page: 0, size: 20, totalElements: 0, totalPages: 0 };
 
+/** Бесплатный тариф по умолчанию: подписка на календарь входит */
+export const FREE_PLAN: AccountPlan = {
+  plan: {
+    id: 'free',
+    title: 'Бесплатный',
+    description: null,
+    paid: false,
+    limits: { ALERTS: 50, PORTFOLIO_POSITIONS: 200 },
+    features: ['CALENDAR_ICS'],
+  },
+  defaultPlan: true,
+  source: null,
+  validUntil: null,
+  limits: [
+    { limit: 'ALERTS', max: 50, used: 0 },
+    { limit: 'PORTFOLIO_POSITIONS', max: 200, used: 0 },
+  ],
+  plans: [],
+};
+
 /**
  * Запросы ленты новостей, обзора рынка и событий облигации, которые делают страницы попутно. mockFetch отвечает на них
  * пустыми данными сам и не считает их в calls - иначе они съедали бы ответы, рассчитанные на основной запрос.
@@ -68,6 +89,8 @@ const SIDE_REQUESTS: [RegExp, unknown][] = [
   [/\/api\/bonds\/collections$/, []],
   // колокольчики уведомлений в таблице и карточке: все правила пользователя одним запросом
   [/\/api\/alerts$/, []],
+  // тариф для подсказок у закрытых фич: бесплатный, всё открыто
+  [/\/api\/account\/plan$/, FREE_PLAN],
 ];
 
 const json = (body: unknown, status = 200) =>

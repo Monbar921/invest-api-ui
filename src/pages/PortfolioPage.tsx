@@ -36,6 +36,7 @@ import type { PortfolioGroup, PortfolioPosition, PortfolioPositionRequest, Portf
 import { BondSearch } from '../components/BondSearch';
 import { BrokerSelect } from '../components/BrokerSelect';
 import { useSession } from '../api/session';
+import { ApiErrorText } from '../components/ApiErrorText';
 import { ErrorState } from '../components/ErrorState';
 import { LoginRequired } from '../components/LoginRequired';
 import { NumberField } from '../components/NumberField';
@@ -690,11 +691,7 @@ function PositionForm({ position, preset, onDone }: { position?: PortfolioPositi
         onChange={(event) => setBuyDate(event.currentTarget.value)}
         error={shown(errors.buyDate)}
       />
-      {mutation.isError && (
-        <Text size="sm" c="red">
-          {mutation.error.message}
-        </Text>
-      )}
+      {mutation.isError && <ApiErrorText error={mutation.error} />}
       <Group justify="flex-end">
         <Button variant="default" onClick={onDone}>
           Отмена

@@ -21,7 +21,7 @@ import { IconAlertTriangle, IconCalendarPlus, IconCheck, IconCopy } from '@table
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { calendarFeedUrl } from '../api/portfolio';
-import { useCalendarLink, useCalendarLinkMutations, usePortfolioCalendar } from '../api/queries';
+import { useAccountPlan, useCalendarLink, useCalendarLinkMutations, usePortfolioCalendar } from '../api/queries';
 import type {
   BondEventType,
   PortfolioCalendar,
@@ -31,7 +31,9 @@ import type {
 } from '../api/types';
 import { addMonths, todayIso } from '../lib/dates';
 import { formatDate, formatDateTime, formatMoney, isRubCurrency, plural } from '../lib/format';
+import { ApiErrorText } from './ApiErrorText';
 import { ErrorState } from './ErrorState';
+import { PlanFeatureHint } from './PlanFeatureHint';
 
 const EVENT_TYPES: Record<BondEventType, { label: string; color: string }> = {
   COUPON: { label: 'Купон', color: 'blue' },
@@ -360,6 +362,10 @@ function CalendarSubscription() {
   const { create, remove } = useCalendarLinkMutations();
   const token = create.data?.token ?? null;
   const url = token ? calendarFeedUrl(token) : null;
+  // тариф не загрузился - кнопки как обычно, закрытую фичу всё равно не даст бэк (402)
+  const accountPlan = useAccountPlan().data;
+  const closed = accountPlan != null && !accountPlan.plan.features.includes('CALENDAR_ICS');
+  const upgrade = accountPlan?.plans.find((plan) => plan.paid && plan.features.includes('CALENDAR_ICS'));
 
   return (
     <Card withBorder padding="md">
@@ -402,7 +408,9 @@ function CalendarSubscription() {
           </Group>
         )}
 
-        {link.data && !link.data.enabled && !url && (
+        {link.data && !link.data.enabled && !url && closed && <PlanFeatureHint planTitle={upgrade?.title} />}
+
+        {link.data && !link.data.enabled && !url && !closed && (
           <Group>
             <Button loading={create.isPending} onClick={() => create.mutate()}>
               Создать ссылку
@@ -410,21 +418,31 @@ function CalendarSubscription() {
           </Group>
         )}
 
+        {link.data?.enabled && closed && (
+          <Text size="sm" c="orange">
+            Подписка на календарь не входит в ваш тариф: ссылка сохранена, но календарь по ней не обновляется.
+          </Text>
+        )}
+
         {link.data?.enabled && (
           <Group gap="sm">
-            {!url && (
+            {!url && !closed && (
               <Text size="sm">
                 Ссылка создана {formatDateTime(link.data.createdAt)}. Её адрес показывался один раз; если он потерян - создайте
                 новую.
               </Text>
             )}
-            <ConfirmButton
-              label="Новая ссылка"
-              question="Прежняя ссылка перестанет работать: календари, подписанные на неё, обновляться не будут."
-              confirmLabel="Создать"
-              loading={create.isPending}
-              onConfirm={(done) => create.mutate(undefined, { onSuccess: done })}
-            />
+            {closed ? (
+              <PlanFeatureHint planTitle={upgrade?.title} />
+            ) : (
+              <ConfirmButton
+                label="Новая ссылка"
+                question="Прежняя ссылка перестанет работать: календари, подписанные на неё, обновляться не будут."
+                confirmLabel="Создать"
+                loading={create.isPending}
+                onConfirm={(done) => create.mutate(undefined, { onSuccess: done })}
+              />
+            )}
             <ConfirmButton
               label="Отключить ссылку"
               color="red"
@@ -442,11 +460,7 @@ function CalendarSubscription() {
             />
           </Group>
         )}
-        {(create.isError || remove.isError) && (
-          <Text size="sm" c="red">
-            {(create.error ?? remove.error)?.message}
-          </Text>
-        )}
+        {(create.error ?? remove.error) && <ApiErrorText error={(create.error ?? remove.error)!} />}
       </Stack>
     </Card>
   );

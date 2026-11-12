@@ -1,8 +1,8 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { CalendarLink, Portfolio, PortfolioCalendar, PortfolioCalendarEvent } from '../api/types';
+import type { AccountPlan, CalendarLink, Plan, Portfolio, PortfolioCalendar, PortfolioCalendarEvent } from '../api/types';
 import { enableAnalytics, sentGoals } from '../test/analytics';
-import { renderRoute } from '../test/render';
+import { FREE_PLAN, renderRoute } from '../test/render';
 import { PortfolioPage } from './PortfolioPage';
 
 const event = (overrides: Partial<PortfolioCalendarEvent>): PortfolioCalendarEvent => ({
@@ -84,12 +84,36 @@ const calendar: PortfolioCalendar = {
 const EMPTY_PORTFOLIO: Portfolio = { groups: [], totals: [], summary: null };
 const TOKEN = 'secret_TOKEN-1';
 
+const PREMIUM: Plan = {
+  id: 'premium',
+  title: 'Премиум',
+  description: null,
+  paid: true,
+  limits: { ALERTS: 500, PORTFOLIO_POSITIONS: 2000 },
+  features: ['CALENDAR_ICS'],
+};
+
+/** Тариф без подписки на календарь */
+const BASIC_PLAN: AccountPlan = {
+  ...FREE_PLAN,
+  plan: { ...FREE_PLAN.plan, id: 'basic', title: 'Базовый', features: [] },
+  plans: [{ ...FREE_PLAN.plan, id: 'basic', title: 'Базовый', features: [] }, PREMIUM],
+};
+
 // Intl в ru-RU разделяет разряды неразрывным пробелом - сравниваем текст с обычными пробелами
 const byText = (text: string) => (_: string, element: Element | null) =>
   element?.textContent?.replace(/\s/g, ' ') === text && element.children.length === 0;
 
-/** API портфеля: календарь, состояние ссылки и её создание / отключение */
-function mockApi({ current = calendar, link = { enabled: false, token: null, createdAt: null } as CalendarLink } = {}) {
+/**
+ * API портфеля: календарь, состояние ссылки и её создание / отключение, тариф. createProblem - создание ссылки
+ * отвечает 402 с этим телом
+ */
+function mockApi({
+  current = calendar,
+  link = { enabled: false, token: null, createdAt: null } as CalendarLink,
+  plan = FREE_PLAN,
+  createProblem = undefined as object | undefined,
+} = {}) {
   const calls: { url: string; method: string }[] = [];
   let linkState = link;
   vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
@@ -101,6 +125,12 @@ function mockApi({ current = calendar, link = { enabled: false, token: null, cre
         linkState = { enabled: false, token: null, createdAt: null };
         return new Response(null, { status: 204 });
       }
+      if (method === 'POST' && createProblem) {
+        return new Response(JSON.stringify(createProblem), {
+          status: 402,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
       if (method === 'POST') {
         linkState = { enabled: true, token: null, createdAt: '2026-11-12T10:00:00Z' };
         body = { enabled: true, token: TOKEN, createdAt: '2026-11-12T10:00:00Z' };
@@ -109,6 +139,8 @@ function mockApi({ current = calendar, link = { enabled: false, token: null, cre
       }
     } else if (url.startsWith('/api/portfolio/calendar')) {
       body = current;
+    } else if (url === '/api/account/plan') {
+      body = plan;
     }
     return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
   });
@@ -210,5 +242,40 @@ describe('PortfolioPage: выплаты', () => {
     expect(await screen.findByText(/Её адрес показывался один раз/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Новая ссылка' })).toBeInTheDocument();
     expect(screen.queryByLabelText('Адрес для подписки')).not.toBeInTheDocument();
+  });
+  it('подписка на календарь не входит в тариф - вместо кнопки подсказка с тарифом, где она есть', async () => {
+    const calls = mockApi({ plan: BASIC_PLAN });
+    renderPayments();
+
+    expect(await screen.findByText(/Доступно в платном тарифе «Премиум»/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Тарифы' })).toHaveAttribute('href', '/plan');
+    expect(screen.queryByRole('button', { name: 'Создать ссылку' })).not.toBeInTheDocument();
+    expect(calls.some((call) => call.method === 'POST')).toBe(false);
+  });
+
+  it('ссылка, созданная на прошлом тарифе, не обновляется - её можно только отключить', async () => {
+    mockApi({ plan: BASIC_PLAN, link: { enabled: true, token: null, createdAt: '2026-11-01T09:00:00Z' } });
+    renderPayments();
+
+    expect(await screen.findByText(/ссылка сохранена, но календарь по ней не обновляется/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Отключить ссылку' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Новая ссылка' })).not.toBeInTheDocument();
+  });
+
+  it('402 при создании ссылки - сообщение бэка и ссылка на тарифы', async () => {
+    mockApi({
+      createProblem: {
+        status: 402,
+        detail: 'Подписка на календарь выплат не входит в тариф «Бесплатный».',
+        plan: 'free',
+        feature: 'CALENDAR_ICS',
+      },
+    });
+    renderPayments();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Создать ссылку' }));
+
+    expect(await screen.findByText(/не входит в тариф «Бесплатный»/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Тарифы' })).toHaveAttribute('href', '/plan');
   });
 });

@@ -33,6 +33,10 @@ export const router = createBrowserRouter([
         lazy: () => import('./pages/PortfolioPage').then((module) => ({ Component: module.PortfolioPage })),
       },
       {
+        path: 'plan',
+        lazy: () => import('./pages/PlanPage').then((module) => ({ Component: module.PlanPage })),
+      },
+      {
         path: 'calculator',
         lazy: () => import('./pages/CalculatorPage').then((module) => ({ Component: module.CalculatorPage })),
       },

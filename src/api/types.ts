@@ -584,3 +584,41 @@ export interface CalendarLink {
   token: string | null;
   createdAt: string | null;
 }
+
+/** Лимит тарифа: правила уведомлений, покупки в портфеле */
+export type PlanLimit = 'ALERTS' | 'PORTFOLIO_POSITIONS';
+
+/** Фича, которую тариф включает или нет */
+export type PlanFeature = 'CALENDAR_ICS';
+
+/** Тариф из настройки бэка */
+export interface Plan {
+  id: string;
+  title: string;
+  description: string | null;
+  paid: boolean;
+  /** Сколько можно создать */
+  limits: Partial<Record<PlanLimit, number>>;
+  features: PlanFeature[];
+}
+
+/** Лимит действующего тарифа и сколько использовано; used может быть больше max - созданное раньше не удаляется */
+export interface PlanLimitUsage {
+  limit: PlanLimit;
+  max: number;
+  used: number;
+}
+
+/** Тариф пользователя */
+export interface AccountPlan {
+  plan: Plan;
+  /** Подписки нет или она закончилась */
+  defaultPlan: boolean;
+  /** MANUAL - выдан вручную; null - тариф по умолчанию */
+  source: string | null;
+  /** Последний день подписки включительно (YYYY-MM-DD); null - бессрочно или тариф по умолчанию */
+  validUntil: string | null;
+  limits: PlanLimitUsage[];
+  /** Все тарифы - для сравнения */
+  plans: Plan[];
+}

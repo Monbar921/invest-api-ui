@@ -17,6 +17,7 @@ import {
   searchBonds,
 } from './bonds';
 import { trackGoal } from '../lib/analytics';
+import { fetchAccountPlan } from './account';
 import { ApiError } from './client';
 import { useSession } from './session';
 import {
@@ -259,6 +260,16 @@ export function useUnlinkTelegram() {
   });
 }
 
+export const accountKeys = {
+  plan: ['account', 'plan'] as const,
+};
+
+/** Тариф пользователя; лимиты и их использование меняются вместе с правилами и покупками - их мутации его сбрасывают */
+export function useAccountPlan() {
+  const { authenticated } = useSession();
+  return useQuery({ queryKey: accountKeys.plan, queryFn: fetchAccountPlan, enabled: authenticated });
+}
+
 export const alertKeys = {
   all: ['alerts'] as const,
   list: () => [...alertKeys.all, 'list'] as const,
@@ -292,8 +303,12 @@ export function useNotifications() {
 /** Создание, изменение и удаление правила; после - список правил и история перечитываются */
 export function useAlertMutations() {
   const queryClient = useQueryClient();
-  // правило могло сразу поставить уведомление в очередь - история тоже меняется
-  const onSuccess = () => queryClient.invalidateQueries({ queryKey: alertKeys.all });
+  // правило могло сразу поставить уведомление в очередь - история тоже меняется; использование лимита тарифа - тоже
+  const onSuccess = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: alertKeys.all }),
+      queryClient.invalidateQueries({ queryKey: accountKeys.plan }),
+    ]);
   return {
     create: useMutation({
       mutationFn: (rule: AlertRule) => createAlert(rule),
@@ -336,7 +351,11 @@ export function useBrokers() {
  */
 export function usePortfolioMutations() {
   const queryClient = useQueryClient();
-  const onSuccess = () => queryClient.invalidateQueries({ queryKey: portfolioKeys.all });
+  const onSuccess = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: portfolioKeys.all }),
+      queryClient.invalidateQueries({ queryKey: accountKeys.plan }),
+    ]);
   return {
     create: useMutation({
       mutationFn: (position: PortfolioPositionRequest) => createPosition(position),

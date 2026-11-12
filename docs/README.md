@@ -20,4 +20,5 @@
 - [INVEST-001-public-mode](../../invest-api/docs/features/INVEST-001-public-mode/) - гость: облигации без входа, «Войти», возврат на ту же страницу
 - [INVEST-001-broker-referral](../../invest-api/docs/features/INVEST-001-broker-referral/) - блок «Купить у брокера» в карточке и калькуляторе, учёт переходов
 - [INVEST-001-seo-pages](../../invest-api/docs/features/INVEST-001-seo-pages/) - метаданные страниц, страницы эмитента и подборок
+- [INVEST-001-plans](../../invest-api/docs/features/INVEST-001-plans/) - страница «Тариф», ссылка «Тарифы» у ответа `402`, подсказка у закрытой фичи
 - [INVEST-001-analytics-landing](../../invest-api/docs/features/INVEST-001-analytics-landing/) - продуктовая аналитика с баннером согласия, лендинг для гостя на `/`

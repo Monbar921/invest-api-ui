@@ -19,6 +19,7 @@ import type { Alert, AlertDirection, AlertType, Bond, PriceAlertType } from '../
 import { ALERT_TYPES, describePriceAlert, EVENT_ALERT_TYPES, isDateAlert, isPriceAlert, PRICE_ALERT_TYPES } from '../lib/alerts';
 import { formatPercent, plural } from '../lib/format';
 import { DECIMAL_SEPARATORS } from '../lib/numbers';
+import { ApiErrorText } from './ApiErrorText';
 import { DebouncedNumberInput } from './DebouncedNumberInput';
 
 /**
@@ -82,11 +83,7 @@ export function BondAlertsPanel({ ticker }: { ticker: string }) {
           onDays={(id, days) => update.mutate({ id, days })}
         />
       ))}
-      {error && (
-        <Text size="xs" c="red">
-          {error.message}
-        </Text>
-      )}
+      {error && <ApiErrorText error={error} size="xs" />}
       <Divider />
       <Text size="sm" fw={600}>
         События и новости
@@ -228,11 +225,7 @@ function PriceAlerts({ ticker, bond, alerts }: { ticker: string; bond: Bond | un
           ? 'Условие уже выполнено - уведомление придёт сразу после добавления.'
           : `${config.unit === '%' ? 'в процентах от цены' : config.unit}, от ${config.min} до ${config.max}`}
       </Text>
-      {error && (
-        <Text size="xs" c="red">
-          {error.message}
-        </Text>
-      )}
+      {error && <ApiErrorText error={error} size="xs" />}
     </Stack>
   );
 }

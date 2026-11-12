@@ -25,17 +25,32 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 /** Ошибка ответа API. Бэк отдаёт ошибки в формате ProblemDetail (RFC 9457). */
 export class ApiError extends Error {
   readonly status: number;
+  /** Тело ошибки: у 402 - тариф, исчерпанный лимит или закрытая фича */
+  readonly problem: ProblemDetail;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, problem: ProblemDetail = {}) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.problem = problem;
   }
 }
 
-interface ProblemDetail {
+export interface ProblemDetail {
   title?: string;
   detail?: string;
+  /** 402: id тарифа пользователя */
+  plan?: string;
+  /** 402: исчерпанный лимит и его значение */
+  limit?: string;
+  max?: number;
+  /** 402: фича, которой нет в тарифе */
+  feature?: string;
+}
+
+/** Действие не входит в тариф (402): лимит исчерпан или фича закрыта - UI предлагает посмотреть тарифы */
+export function isPlanRestriction(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status === 402;
 }
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -57,7 +72,8 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   if (!response.ok) {
-    throw new ApiError(response.status, await readErrorMessage(response));
+    const problem = await readProblem(response);
+    throw new ApiError(response.status, problem.detail ?? problem.title ?? `Ошибка ${response.status}`, problem);
   }
 
   // 204 No Content (DELETE): тела нет
@@ -68,12 +84,11 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
-async function readErrorMessage(response: Response): Promise<string> {
+async function readProblem(response: Response): Promise<ProblemDetail> {
   try {
-    const problem = (await response.json()) as ProblemDetail;
-    return problem.detail ?? problem.title ?? `Ошибка ${response.status}`;
+    return ((await response.json()) as ProblemDetail | null) ?? {};
   } catch {
-    return `Ошибка ${response.status}`;
+    return {};
   }
 }
 
