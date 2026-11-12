@@ -514,3 +514,73 @@ export interface Broker {
   id: number;
   name: string;
 }
+
+/**
+ * Выплата по облигации портфеля: событие облигации (как во вкладке «События» карточки) × количество облигаций
+ */
+export interface PortfolioCalendarEvent {
+  /** YYYY-MM-DD */
+  date: string;
+  type: BondEventType;
+  ticker: string;
+  bondName: string | null;
+  /** Валюта выплаты; размер не объявлен - валюта номинала */
+  currency: string | null;
+  /** Облигаций в портфеле - все покупки этой облигации */
+  quantity: number;
+  /** На одну облигацию; null - не объявлена или у события выплаты нет (оферта, погашение с остатком в амортизации) */
+  amountPerBond: number | null;
+  /** amountPerBond × quantity */
+  amount: number | null;
+  /** amount по курсу на сегодня; null - нет суммы или курса */
+  amountInRub: number | null;
+  /** Выплата будет, но размер неизвестен (купон флоатера не объявлен): итог неполный */
+  amountUnknown: boolean;
+  /** Прошлый размер купона на облигацию, если он изменился */
+  previousAmountPerBond: number | null;
+}
+
+/** Сумма выплат в одной валюте */
+export interface PortfolioCalendarTotal {
+  currency: string | null;
+  /** Сумма известных выплат */
+  amount: number;
+  /** amount по курсу на сегодня; null - курса нет */
+  amountInRub: number | null;
+  /** Есть выплаты без объявленного размера: настоящая сумма больше */
+  incomplete: boolean;
+}
+
+export interface PortfolioCalendarMonth {
+  /** YYYY-MM */
+  month: string;
+  totals: PortfolioCalendarTotal[];
+  /** Все валюты в рублях; null - у какой-то валюты нет курса */
+  amountInRub: number | null;
+  incomplete: boolean;
+}
+
+/** Календарь выплат портфеля за период: с сегодня по to */
+export interface PortfolioCalendar {
+  from: string;
+  to: string;
+  /** По дате */
+  events: PortfolioCalendarEvent[];
+  /** Только месяцы с событиями, по возрастанию */
+  months: PortfolioCalendarMonth[];
+  totals: PortfolioCalendarTotal[];
+  /** Итог в рублях по курсу на сегодня; null - у какой-то валюты нет курса */
+  amountInRub: number | null;
+  /** Есть выплаты без размера или облигации, которых нет в системе */
+  incomplete: boolean;
+  /** Облигации портфеля, которых больше нет в системе: их выплат в календаре нет */
+  unknownTickers: string[];
+}
+
+/** Личная ссылка на календарь выплат (.ics) */
+export interface CalendarLink {
+  enabled: boolean;
+  /** Только в ответе на создание: хранится хеш, показать адрес ещё раз нельзя */
+  token: string | null;
+  createdAt: string | null;
+}

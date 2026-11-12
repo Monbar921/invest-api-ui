@@ -2,6 +2,11 @@
 // session cookie и XSRF-TOKEN gateway работают только для same-origin запросов
 const API_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 
+/** Абсолютный адрес пути API - для ссылок, которые открывают не из UI (подписка календаря) */
+export function absoluteApiUrl(path: string): string {
+  return new URL(`${API_URL}${path}`, window.location.origin).toString();
+}
+
 /** Старт OAuth2-логина на gateway: он перекинет на Keycloak и после входа вернёт на страницу из returnTo */
 export const LOGIN_PATH = '/oauth2/authorization/keycloak';
 

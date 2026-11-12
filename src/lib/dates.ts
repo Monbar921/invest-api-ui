@@ -18,6 +18,13 @@ export function isIsoDate(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(value).getTime());
 }
 
+/** Дата через months месяцев от today (YYYY-MM-DD); 31-е число в коротком месяце - его последний день */
+export function addMonths(today: string, months: number): string {
+  const [year, month, day] = today.split('-').map(Number) as [number, number, number];
+  const lastDay = new Date(year, month - 1 + months + 1, 0).getDate();
+  return todayIso(new Date(year, month - 1 + months, Math.min(day, lastDay)));
+}
+
 /** Период графика цены: месяц, полгода, год, три года, вся история */
 export type ChartPeriod = '1M' | '6M' | '1Y' | '3Y' | 'ALL';
 

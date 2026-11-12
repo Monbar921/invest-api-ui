@@ -1,4 +1,4 @@
-import { isIsoDate, periodStart, todayIso, toIsoDate } from './dates';
+import { addMonths, isIsoDate, periodStart, todayIso, toIsoDate } from './dates';
 
 describe('dates', () => {
   it('сегодня по местному времени в YYYY-MM-DD', () => {
@@ -24,5 +24,17 @@ describe('dates', () => {
     expect(periodStart('1M', '2026-03-31')).toBe('2026-02-28');
     expect(periodStart('1M', '2028-03-31')).toBe('2028-02-29');
     expect(periodStart('1M', '2026-01-15')).toBe('2025-12-15');
+  });
+});
+
+describe('addMonths', () => {
+  it('сдвигает дату вперёд на месяцы', () => {
+    expect(addMonths('2026-11-12', 3)).toBe('2027-02-12');
+    expect(addMonths('2026-11-12', 12)).toBe('2027-11-12');
+  });
+
+  it('31-е число в коротком месяце - его последний день', () => {
+    expect(addMonths('2026-01-31', 1)).toBe('2026-02-28');
+    expect(addMonths('2027-12-31', 2)).toBe('2028-02-29');
   });
 });

@@ -11,15 +11,24 @@ import {
   SimpleGrid,
   Stack,
   Table,
+  Tabs,
   Text,
   TextInput,
   Title,
   Tooltip,
 } from '@mantine/core';
-import { IconChevronDown, IconChevronRight, IconPencil, IconPlus, IconTrash } from '@tabler/icons-react';
+import {
+  IconCalendarDollar,
+  IconChevronDown,
+  IconChevronRight,
+  IconListDetails,
+  IconPencil,
+  IconPlus,
+  IconTrash,
+} from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { fetchBond } from '../api/bonds';
 import { MAX_BUY_PRICE, MAX_POSITION_QUANTITY } from '../api/portfolio';
 import { bondKeys, usePortfolio, usePortfolioMutations } from '../api/queries';
@@ -30,6 +39,7 @@ import { useSession } from '../api/session';
 import { ErrorState } from '../components/ErrorState';
 import { LoginRequired } from '../components/LoginRequired';
 import { NumberField } from '../components/NumberField';
+import { PortfolioPayments } from '../components/PortfolioPayments';
 import { isIsoDate, todayIso } from '../lib/dates';
 import { usePageMeta } from '../lib/seo';
 import { formatChange, formatDate, formatMoney, formatNumber, formatPercent, isRubCurrency, plural } from '../lib/format';
@@ -56,8 +66,14 @@ export function PortfolioPage() {
   );
 }
 
+const POSITIONS_TAB = 'positions';
+const PAYMENTS_TAB = 'payments';
+
 function Portfolio() {
   const portfolio = usePortfolio();
+  // вкладка - в адресе: на «Выплаты» можно дать ссылку, и она остаётся после обновления страницы
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = searchParams.get('tab') === PAYMENTS_TAB ? PAYMENTS_TAB : POSITIONS_TAB;
   const [adding, setAdding] = useState<{ bond?: PresetBond } | null>(null);
   const [editing, setEditing] = useState<PortfolioPosition | null>(null);
   const groups = portfolio.data?.groups ?? [];
@@ -71,35 +87,56 @@ function Portfolio() {
         </Button>
       </Group>
 
-      {portfolio.isPending && <Loader size="sm" />}
-      {portfolio.isError && <ErrorState error={portfolio.error} onRetry={() => void portfolio.refetch()} />}
-      {portfolio.data && groups.length === 0 && (
-        <Text c="dimmed">В портфеле пока ничего нет. Добавьте покупку: облигацию, количество, цену и дату.</Text>
-      )}
-      {portfolio.data && groups.length > 0 && (
-        <>
-          <Totals totals={portfolio.data.totals} summary={portfolio.data.summary} />
-          <PositionsTable
-            groups={groups}
-            onEdit={setEditing}
-            onAdd={(group) =>
-              setAdding({
-                bond: {
-                  ticker: group.ticker,
-                  name: group.bondName,
-                  currency: group.currency,
-                  currentPrice: group.currentPrice,
-                },
-              })
-            }
-          />
-          <Text size="xs" c="dimmed">
-            Доход - только от изменения цены: (текущая цена − цена покупки) × номинал × количество. Купоны, НКД и комиссии не
-            учитываются. Доход в рублях - от суммы, заплаченной в рублях (не указана - по курсу ЦБ на дату покупки), до стоимости
-            по сегодняшнему курсу.
-          </Text>
-        </>
-      )}
+      <Tabs
+        value={tab}
+        onChange={(value) => setSearchParams(value === PAYMENTS_TAB ? { tab: PAYMENTS_TAB } : {}, { replace: true })}
+        keepMounted={false}
+      >
+        <Tabs.List mb="lg">
+          <Tabs.Tab value={POSITIONS_TAB} leftSection={<IconListDetails size={16} />}>
+            Покупки
+          </Tabs.Tab>
+          <Tabs.Tab value={PAYMENTS_TAB} leftSection={<IconCalendarDollar size={16} />}>
+            Выплаты
+          </Tabs.Tab>
+        </Tabs.List>
+        <Tabs.Panel value={POSITIONS_TAB}>
+          <Stack gap="lg">
+            {portfolio.isPending && <Loader size="sm" />}
+            {portfolio.isError && <ErrorState error={portfolio.error} onRetry={() => void portfolio.refetch()} />}
+            {portfolio.data && groups.length === 0 && (
+              <Text c="dimmed">В портфеле пока ничего нет. Добавьте покупку: облигацию, количество, цену и дату.</Text>
+            )}
+            {portfolio.data && groups.length > 0 && (
+              <>
+                <Totals totals={portfolio.data.totals} summary={portfolio.data.summary} />
+                <PositionsTable
+                  groups={groups}
+                  onEdit={setEditing}
+                  onAdd={(group) =>
+                    setAdding({
+                      bond: {
+                        ticker: group.ticker,
+                        name: group.bondName,
+                        currency: group.currency,
+                        currentPrice: group.currentPrice,
+                      },
+                    })
+                  }
+                />
+                <Text size="xs" c="dimmed">
+                  Доход - только от изменения цены: (текущая цена − цена покупки) × номинал × количество. Купоны, НКД и комиссии
+                  не учитываются. Доход в рублях - от суммы, заплаченной в рублях (не указана - по курсу ЦБ на дату покупки), до
+                  стоимости по сегодняшнему курсу.
+                </Text>
+              </>
+            )}
+          </Stack>
+        </Tabs.Panel>
+        <Tabs.Panel value={PAYMENTS_TAB}>
+          <PortfolioPayments />
+        </Tabs.Panel>
+      </Tabs>
 
       <Modal opened={adding != null} onClose={() => setAdding(null)} title="Новая покупка">
         {adding && <PositionForm preset={adding.bond} onDone={() => setAdding(null)} />}

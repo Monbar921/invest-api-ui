@@ -28,7 +28,17 @@ import {
   fetchNotifications,
   updateAlert,
 } from './alerts';
-import { createPosition, deletePosition, fetchBrokers, fetchPortfolio, updatePosition } from './portfolio';
+import {
+  createCalendarLink,
+  createPosition,
+  deleteCalendarLink,
+  deletePosition,
+  fetchBrokers,
+  fetchCalendarLink,
+  fetchPortfolio,
+  fetchPortfolioCalendar,
+  updatePosition,
+} from './portfolio';
 import { createTelegramLink, fetchTelegramStatus, unlinkTelegram } from './telegram';
 import type {
   BondParameters,
@@ -304,6 +314,9 @@ export const portfolioKeys = {
   all: ['portfolio'] as const,
   positions: () => [...portfolioKeys.all, 'positions'] as const,
   brokers: () => [...portfolioKeys.all, 'brokers'] as const,
+  // внутри portfolioKeys.all: изменение покупок перечитывает и календарь
+  calendar: (to: string) => [...portfolioKeys.all, 'calendar', to] as const,
+  calendarLink: () => [...portfolioKeys.all, 'calendar-link'] as const,
 };
 
 /** Портфель с текущими ценами; цены на бэке обновляются в течение дня - перечитываем при возврате на вкладку */
@@ -337,5 +350,39 @@ export function usePortfolioMutations() {
       onSuccess,
     }),
     remove: useMutation({ mutationFn: deletePosition, onSuccess }),
+  };
+}
+
+/** Календарь выплат с сегодня по to */
+export function usePortfolioCalendar(to: string) {
+  const { authenticated } = useSession();
+  return useQuery({
+    queryKey: portfolioKeys.calendar(to),
+    queryFn: () => fetchPortfolioCalendar(to),
+    enabled: authenticated,
+  });
+}
+
+export function useCalendarLink() {
+  const { authenticated } = useSession();
+  return useQuery({ queryKey: portfolioKeys.calendarLink(), queryFn: fetchCalendarLink, enabled: authenticated });
+}
+
+/**
+ * Создание и отключение личной ссылки на календарь. Ответ на создание - единственный раз, когда виден токен: он
+ * остаётся в данных мутации, а статус перечитывается без него
+ */
+export function useCalendarLinkMutations() {
+  const queryClient = useQueryClient();
+  const onSuccess = () => queryClient.invalidateQueries({ queryKey: portfolioKeys.calendarLink() });
+  return {
+    create: useMutation({
+      mutationFn: createCalendarLink,
+      onSuccess: () => {
+        trackGoal('portfolio_calendar_link_created');
+        return onSuccess();
+      },
+    }),
+    remove: useMutation({ mutationFn: deleteCalendarLink, onSuccess }),
   };
 }
