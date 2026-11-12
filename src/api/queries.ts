@@ -16,6 +16,7 @@ import {
   registerBrokerClick,
   searchBonds,
 } from './bonds';
+import { trackGoal } from '../lib/analytics';
 import { ApiError } from './client';
 import { useSession } from './session';
 import {
@@ -283,7 +284,13 @@ export function useAlertMutations() {
   // правило могло сразу поставить уведомление в очередь - история тоже меняется
   const onSuccess = () => queryClient.invalidateQueries({ queryKey: alertKeys.all });
   return {
-    create: useMutation({ mutationFn: (rule: AlertRule) => createAlert(rule), onSuccess }),
+    create: useMutation({
+      mutationFn: (rule: AlertRule) => createAlert(rule),
+      onSuccess: (_alert, rule) => {
+        trackGoal('alert_rule_created', { type: rule.type });
+        return onSuccess();
+      },
+    }),
     update: useMutation({
       mutationFn: ({ id, ...changes }: AlertChanges & { id: number }) => updateAlert(id, changes),
       onSuccess,
@@ -317,7 +324,13 @@ export function usePortfolioMutations() {
   const queryClient = useQueryClient();
   const onSuccess = () => queryClient.invalidateQueries({ queryKey: portfolioKeys.all });
   return {
-    create: useMutation({ mutationFn: (position: PortfolioPositionRequest) => createPosition(position), onSuccess }),
+    create: useMutation({
+      mutationFn: (position: PortfolioPositionRequest) => createPosition(position),
+      onSuccess: () => {
+        trackGoal('portfolio_position_added');
+        return onSuccess();
+      },
+    }),
     update: useMutation({
       mutationFn: ({ id, ...position }: PortfolioPositionRequest & { id: number }) => updatePosition(id, position),
       onSuccess,

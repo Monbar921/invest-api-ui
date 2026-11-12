@@ -22,14 +22,18 @@ TanStack Query - запросы и кэш, React Router - маршруты.
 | `api/telegram.ts`                    | запросы к `/api/alerts/telegram`: статус, ссылка привязки, отвязка                                                                                                                                                                                                                           |
 | `api/queries.ts`                     | хуки TanStack Query (`useBondsPage`, `useBond`)                                                                                                                                                                                                                                              |
 | `api/types.ts`                       | типы ответов, вручную повторяют DTO из `invest-api-dto`                                                                                                                                                                                                                                      |
-| `pages/`                             | `BondsPage`, `BondPage`, `IssuerPage`, `CollectionPage`, `AlertsPage`, `PortfolioPage`, `CalculatorPage`, `NotFoundPage`                                                                                                                                                                     |
+| `pages/`                             | `HomePage` (лендинг `LandingPage` гостю, `/bonds` вошедшему), `BondsPage`, `BondPage`, `IssuerPage`, `CollectionPage`, `AlertsPage`, `PortfolioPage`, `CalculatorPage`, `NotFoundPage`                                                                                                       |
 | `components/`                        | таблица, фильтры, график выплат, бейдж риска, состояние ошибки; лента новостей (`NewsFeed`, `NewsList`, `MarketOverviewCard`), события и новости облигации (`BondEventsAndNews`); поле числа `NumberField` (держит набранный текст, пока число не дописано, дробь - через запятую или точку) |
 | `layout/`                            | `AppLayout`: шапка, кнопка Telegram (`components/TelegramConnect`), тема, выход; у гостя - «Войти»                                                                                                                                                                                           |
-| `lib/`                               | состояние таблицы в URL (`bondSearchParams`), форматирование денег, дат, риска; разбор набранного числа (`numbers.ts`); метаданные страницы (`seo.ts`, `usePageMeta`)                                                                                                                        |
+| `lib/`                               | состояние таблицы в URL (`bondSearchParams`), форматирование денег, дат, риска; разбор набранного числа (`numbers.ts`); метаданные страницы (`seo.ts`, `usePageMeta`); продуктовая аналитика (`analytics.ts`)                                                                                |
 | `router.tsx`, `theme.ts`, `main.tsx` | маршруты, тема Mantine, точка входа                                                                                                                                                                                                                                                          |
 
 ## Экраны
 
+- `/` - гостю лендинг (`LandingPage`): что умеет продукт (открытые гостю разделы - ссылками, портфель и уведомления -
+  «после входа»), «Войти / Зарегистрироваться» (вход с возвратом на `/`) и «Смотреть облигации», первые 5 облигаций первой
+  подборки (нет подборок или бэк не ответил - блока нет), оговорка «не даёт инвестиционных рекомендаций». Вошедшего `/`
+  ведёт на `/bonds`.
 - Колокольчик у тикера в таблице и рядом с названием в карточке: залит, если есть включённые уведомления; открывает
   окно с переключателем и числом дней на каждый тип события (купон, частичное погашение, оферта, погашение). Ниже -
   «Цена и доходность»: текущие цена и доходности, пороги текстом («Цена ≤ 95% номинала») с переключателем и удалением,
@@ -88,6 +92,20 @@ React при загрузке заменяет содержимое своим. 
 тег удаляется. Title - «<заголовок> - Облигации», canonical - путь без query. Портфель, уведомления и 404 - `noindex`
 без canonical. Title и description карточки, эмитента и подборки строятся по тем же правилам, что в gateway
 (`SeoPageBuilder`) - менять их нужно в обоих местах.
+
+## Продуктовая аналитика
+
+`lib/analytics.ts` - единственное место, которое знает про сервис (Яндекс Метрика,
+[INVEST-001-analytics-landing](../../invest-api/docs/features/INVEST-001-analytics-landing/design.md)):
+
+- номер счётчика - `VITE_YANDEX_METRIKA_ID` при сборке; не задан - модуль ничего не делает, баннера нет;
+- `AnalyticsConsent` в `AppLayout` - баннер согласия на cookie; `tag.js` грузится только после «Принять», выбор - в
+  `localStorage` (`invest.analytics-consent`); до согласия и после отказа события отбрасываются;
+- просмотры - эффект в `AppLayout` на смену пути и query (`trackPageView`), вошедший на `/` не считается;
+- цели (`trackGoal`): `bond_filter` (`BondsPage`), `profit_calculation` (`ProfitCalculator`, раз на тикер),
+  `portfolio_position_added` и `alert_rule_created` (`onSuccess` мутаций в `api/queries.ts`), `telegram_connected`
+  (`TelegramConnect`), `landing_login` (лендинг). Только тип действия: без имени пользователя, тикеров покупок и
+  правил, значений фильтров; Вебвизор и карта кликов выключены.
 
 ## API
 

@@ -1,6 +1,7 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { TelegramStatus } from '../api/types';
+import { enableAnalytics, sentGoals } from '../test/analytics';
 import { mockFetch, renderRoute } from '../test/render';
 import { TelegramConnect } from './TelegramConnect';
 
@@ -34,6 +35,7 @@ describe('TelegramConnect', () => {
   });
 
   it('выдаёт одноразовую ссылку и ждёт привязки', async () => {
+    const ym = enableAnalytics();
     const calls = mockFetch({ body: status() }, { body: LINK }, { body: status({ linked: true, username: 'alice' }) });
 
     await openPanel();
@@ -50,6 +52,7 @@ describe('TelegramConnect', () => {
     expect(calls[1]).toMatchObject({ url: '/api/alerts/telegram/link-token', init: { method: 'POST' } });
     // после /start в боте статус меняется - панель узнаёт об этом опросом
     expect(await screen.findByText(/Подключён @alice/, {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(sentGoals(ym)).toEqual([['telegram_connected', undefined]]);
   });
 
   it('отключает привязанный чат', async () => {

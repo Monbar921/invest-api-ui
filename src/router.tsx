@@ -1,13 +1,15 @@
-import { createBrowserRouter, Navigate } from 'react-router';
+import { createBrowserRouter } from 'react-router';
 import { AppLayout } from './layout/AppLayout';
 import { BondsPage } from './pages/BondsPage';
+import { HomePage } from './pages/HomePage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
 export const router = createBrowserRouter([
   {
     element: <AppLayout />,
     children: [
-      { index: true, element: <Navigate to="/bonds" replace /> },
+      // гостю - лендинг, вошедшему - список облигаций
+      { index: true, element: <HomePage /> },
       { path: 'bonds', element: <BondsPage /> },
       {
         path: 'bonds/:ticker',

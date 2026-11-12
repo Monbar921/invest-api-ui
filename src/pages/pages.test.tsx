@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Bond, Page } from '../api/types';
 import { mockFetch, mockFetchByUrl, renderRoute } from '../test/render';
+import { enableAnalytics, sentGoals } from '../test/analytics';
 import { BondPage } from './BondPage';
 import { BondsPage } from './BondsPage';
 
@@ -138,6 +139,7 @@ describe('BondsPage', () => {
   });
 
   it('фильтр по типу купона попадает в URL и в запрос', async () => {
+    const ym = enableAnalytics();
     const calls = mockFetch({ body: page([bond('RU000A1')]) });
     const { router } = renderRoute(<BondsPage />, { path: '/bonds', url: '/bonds' });
     await screen.findByText('RU000A1');
@@ -146,6 +148,8 @@ describe('BondsPage', () => {
 
     await waitFor(() => expect(router.state.location.search).toBe('?coupon=floating'));
     await waitFor(() => expect(JSON.parse(String(calls.at(-1)!.init?.body)).isFixedCoupon).toBe(false));
+    // в аналитику - только какой фильтр тронут, без значения
+    expect(sentGoals(ym)).toEqual([['bond_filter', { filter: ['couponType'] }]]);
   });
 
   it('поиск облигации открывает её карточку', async () => {

@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Bond, BondSearchItem, Portfolio, PortfolioGroup, PortfolioPosition } from '../api/types';
 import { renderRoute } from '../test/render';
+import { enableAnalytics, sentGoals } from '../test/analytics';
 import { PortfolioPage } from './PortfolioPage';
 
 const position = (overrides: Partial<PortfolioPosition>): PortfolioPosition => ({
@@ -287,6 +288,7 @@ describe('PortfolioPage', () => {
   });
 
   it('добавляет покупку по текущей цене выбранной облигации', async () => {
+    const ym = enableAnalytics();
     const calls = mockApi(EMPTY);
     renderPage();
 
@@ -307,6 +309,8 @@ describe('PortfolioPage', () => {
     expect(post.url).toBe('/api/portfolio/positions');
     expect(post.body).toMatchObject({ ticker: 'RU000A10DCK7', quantity: 5, buyPrice: 101.07 });
     expect(post.body.buyAmountRub).toBeUndefined();
+    // цель без тикера и сумм: что лежит в портфеле - личное
+    await waitFor(() => expect(sentGoals(ym)).toEqual([['portfolio_position_added', undefined]]));
   });
 
   it('у валютной покупки можно указать, сколько заплачено в рублях', async () => {

@@ -20,11 +20,13 @@ import {
   IconMoon,
   IconSun,
 } from '@tabler/icons-react';
-import type { ReactNode } from 'react';
-import { Link, NavLink, Outlet, useMatch } from 'react-router';
+import { type ReactNode, useEffect } from 'react';
+import { Link, NavLink, Outlet, useLocation, useMatch } from 'react-router';
 import { login, logout } from '../api/client';
 import { useSession } from '../api/session';
+import { AnalyticsConsent } from '../components/AnalyticsConsent';
 import { TelegramConnect } from '../components/TelegramConnect';
+import { trackPageView } from '../lib/analytics';
 
 // у списка облигаций слева лента новостей - таблице нужна ширина больше стандартного контейнера
 const WIDE_PAGE_WIDTH = 1920;
@@ -32,6 +34,15 @@ const WIDE_PAGE_WIDTH = 1920;
 export function AppLayout() {
   const wide = useMatch('/bonds') != null;
   const session = useSession();
+  const location = useLocation();
+
+  useEffect(() => {
+    // вошедшего «/» сразу уводит на /bonds - просмотр лендинга, которого он не видел, не считаем
+    if (location.pathname === '/' && session.authenticated) {
+      return;
+    }
+    trackPageView(`${location.pathname}${location.search}`);
+  }, [location.pathname, location.search, session.authenticated]);
 
   return (
     <AppShell header={{ height: 56 }} padding="md">
@@ -65,6 +76,7 @@ export function AppLayout() {
         <Container size={wide ? WIDE_PAGE_WIDTH : 'xl'} px={0}>
           <Outlet />
         </Container>
+        <AnalyticsConsent />
       </AppShell.Main>
     </AppShell>
   );

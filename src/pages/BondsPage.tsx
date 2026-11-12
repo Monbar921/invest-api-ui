@@ -8,6 +8,7 @@ import { BondSearch } from '../components/BondSearch';
 import { BondsTable } from '../components/BondsTable';
 import { ErrorState } from '../components/ErrorState';
 import { NewsFeed } from '../components/NewsFeed';
+import { trackGoal } from '../lib/analytics';
 import { parseBondSearch, toBondParameters, toSearchParams, type BondSearchState } from '../lib/bondSearchParams';
 import { formatNumber } from '../lib/format';
 import { usePageMeta } from '../lib/seo';
@@ -108,7 +109,15 @@ function BondsList({ state, query, update, reset, onSelect }: BondsListProps) {
         </Tabs.List>
       </Tabs>
 
-      <BondFilters state={state} onChange={update} onReset={reset} />
+      <BondFilters
+        state={state}
+        onChange={(patch) => {
+          // какие фильтры трогают - имена полей, без значений
+          trackGoal('bond_filter', { filter: Object.keys(patch) });
+          update(patch);
+        }}
+        onReset={reset}
+      />
 
       {query.isError ? (
         <ErrorState error={query.error} onRetry={() => query.refetch()} />

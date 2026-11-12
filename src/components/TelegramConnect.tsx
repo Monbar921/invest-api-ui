@@ -1,8 +1,9 @@
 import { ActionIcon, Alert, Anchor, Button, Code, CopyButton, Group, Loader, Popover, Stack, Text, Tooltip } from '@mantine/core';
 import { IconBrandTelegram, IconCheck, IconCopy, IconExternalLink } from '@tabler/icons-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useCreateTelegramLink, useTelegramStatus, useUnlinkTelegram } from '../api/queries';
 import type { TelegramLink, TelegramStatus } from '../api/types';
+import { trackGoal } from '../lib/analytics';
 import { formatDateTime } from '../lib/format';
 
 const LABEL = 'Уведомления в Telegram';
@@ -41,6 +42,14 @@ export function TelegramConnect() {
 
 function TelegramPanel({ link, onLink }: { link: TelegramLink | null; onLink: (link: TelegramLink | null) => void }) {
   const status = useTelegramStatus(true, link != null);
+  const linked = status.data?.linked === true;
+
+  useEffect(() => {
+    // привязка состоялась, пока панель ждала «Старт» с выданной ссылкой; уже подключённый Telegram - не новое действие
+    if (link && linked) {
+      trackGoal('telegram_connected');
+    }
+  }, [link, linked]);
 
   if (status.isPending) {
     return (

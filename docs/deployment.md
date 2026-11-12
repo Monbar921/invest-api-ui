@@ -26,6 +26,11 @@ npm run preview   # раздача dist/
 
 `VITE_API_URL` (см. `.env.example`) задаётся только если API на другом origin; по умолчанию пути относительные.
 
+`VITE_YANDEX_METRIKA_ID` - номер счётчика Яндекс Метрики; без него аналитики и баннера согласия нет. Значение
+подставляется при сборке: переменная окружения перед `npm run build` (и перед `.\deploy.ps1 ui`, который её запускает)
+или `.env.production.local` (в git не попадает). В счётчике завести цели «JavaScript-событие» из
+[INVEST-001-analytics-landing](../../invest-api/docs/features/INVEST-001-analytics-landing/#цели).
+
 ## Стенд в k3d
 
 [invest-deploy](../../invest-deploy/docs/deployment.md): `.\deploy.ps1 ui` собирает `dist/` и кладёт его в образ

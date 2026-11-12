@@ -15,9 +15,10 @@ import {
 } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import { IconAlertTriangle } from '@tabler/icons-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMarketOverview, useProfitCalculation } from '../api/queries';
 import type { Bond, ExitType, ProfitCalculation, ProfitCalculationRequest } from '../api/types';
+import { trackGoal } from '../lib/analytics';
 import { isIsoDate, todayIso, toIsoDate } from '../lib/dates';
 import { formatDate, formatMoney, formatNumber, formatPercent, plural } from '../lib/format';
 import { NumberField } from './NumberField';
@@ -85,6 +86,17 @@ export function ProfitCalculator({ bond }: { bond: Bond }) {
   );
   const [debounced] = useDebouncedValue(parameters, CALCULATION_DELAY_MS);
   const calculation = useProfitCalculation(bond.ticker, debounced, valid && debounced === parameters);
+
+  // расчёт пересчитывается на каждое изменение поля - цель отправляем раз на облигацию, иначе один пользователь
+  // давал бы десятки «расчётов»
+  const trackedTicker = useRef<string | null>(null);
+  const calculated = calculation.isSuccess;
+  useEffect(() => {
+    if (calculated && trackedTicker.current !== bond.ticker) {
+      trackedTicker.current = bond.ticker;
+      trackGoal('profit_calculation');
+    }
+  }, [calculated, bond.ticker]);
 
   return (
     <Stack gap="md">

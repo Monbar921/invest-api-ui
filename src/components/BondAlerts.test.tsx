@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import type { Alert, NotificationItem, TelegramStatus } from '../api/types';
 import { AlertsPage } from '../pages/AlertsPage';
 import { renderRoute } from '../test/render';
+import { enableAnalytics, sentGoals } from '../test/analytics';
 import { BondAlertsButton } from './BondAlertsButton';
 
 const TICKER = 'RU000A10EQ34';
@@ -100,6 +101,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('BondAlertsButton', () => {
   it('включает уведомление о купоне со значением по умолчанию', async () => {
+    const ym = enableAnalytics();
     const calls = mockAlertsApi();
     renderRoute(<BondAlertsButton ticker={TICKER} name="Авто Финанс" />, { path: '/bonds', url: '/bonds' });
 
@@ -116,6 +118,8 @@ describe('BondAlertsButton', () => {
     );
     // после включения колокольчик залит
     expect(await screen.findByRole('button', { name: `Уведомления включены: ${TICKER}` })).toBeInTheDocument();
+    // тип правила, без тикера
+    expect(sentGoals(ym)).toEqual([['alert_rule_created', { type: 'COUPON_BEFORE' }]]);
   });
 
   it('выключает правило, а не удаляет его', async () => {

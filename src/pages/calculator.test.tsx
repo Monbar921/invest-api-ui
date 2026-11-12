@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Bond, BondSearchItem, BrokerLink, ProfitCalculation } from '../api/types';
 import { renderRoute } from '../test/render';
+import { enableAnalytics, sentGoals } from '../test/analytics';
 import { BondPage } from './BondPage';
 import { CalculatorPage } from './CalculatorPage';
 
@@ -130,6 +131,7 @@ describe('CalculatorPage', () => {
   });
 
   it('показывает показатели облигации и результат расчёта', async () => {
+    const ym = enableAnalytics();
     const calls = mockApi();
     renderRoute(<CalculatorPage />, { path: '/calculator', url: '/calculator?ticker=RU000A10DCK7' });
 
@@ -149,6 +151,7 @@ describe('CalculatorPage', () => {
     const body = JSON.parse(String(calls.find((call) => call.url.endsWith('/calculation'))!.init?.body));
     expect(body).toMatchObject({ quantity: 1, sellDate: '2030-10-16', buyPricePercent: 101.07, taxRatePercent: 13 });
     expect(body.sellPricePercent).toBeUndefined();
+    expect(sentGoals(ym)).toEqual([['profit_calculation', undefined]]);
   });
 
   it('ставка НДФЛ 15 % и расчёт без налога', async () => {
