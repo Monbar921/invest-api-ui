@@ -121,10 +121,11 @@ export function useCollections() {
   return useQuery({ queryKey: bondKeys.collections(), queryFn: fetchCollections, staleTime: Infinity });
 }
 
-export function useCollection(slug: string, page: number, size: number) {
+export function useCollection(slug: string, page: number, size: number, { enabled = true } = {}) {
   return useQuery({
     queryKey: bondKeys.collection(slug, page, size),
     queryFn: () => fetchCollection(slug, page, size),
+    enabled,
     placeholderData: keepPreviousData,
     retry: notFoundNoRetry,
   });

@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { login } from '../api/client';
 import { useCollection, useCollections } from '../api/queries';
+import type { BondCollectionPage } from '../api/types';
 import { trackGoal } from '../lib/analytics';
 import { formatPercent } from '../lib/format';
 import { usePageMeta } from '../lib/seo';
@@ -14,6 +15,8 @@ interface Feature {
   text: string;
   /** Раздел открыт гостю - ссылка на него; личный раздел - пометка «после входа» */
   to?: string;
+  /** Ссылка лучше на конкретную облигацию - первую из живого примера; пока её нет - на `to` */
+  linkToSampleBond?: boolean;
 }
 
 const FEATURES: Feature[] = [
@@ -28,6 +31,7 @@ const FEATURES: Feature[] = [
     title: 'Карточка облигации',
     text: 'График цены, купоны и график выплат, оферта и амортизация, эмитент и новости по выпуску.',
     to: '/bonds',
+    linkToSampleBond: true,
   },
   {
     icon: <IconCalculator size={20} />,
@@ -66,6 +70,13 @@ export function LandingPage() {
     canonicalPath: '/',
   });
 
+  // живой пример - первая подборка; из неё же облигация для ссылки «Карточка облигации»
+  const firstCollection = useCollections().data?.[0];
+  const sample = useCollection(firstCollection?.slug ?? '', 0, SAMPLE_SIZE, { enabled: firstCollection != null }).data;
+  const sampleBond = sample?.bonds.content[0];
+  const bondLink = (feature: Feature) =>
+    feature.linkToSampleBond && sampleBond ? `/bonds/${encodeURIComponent(sampleBond.ticker)}` : feature.to;
+
   const signIn = () => {
     trackGoal('landing_login');
     login();
@@ -96,12 +107,12 @@ export function LandingPage() {
         <Title order={2}>Что умеет</Title>
         <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }}>
           {FEATURES.map((feature) => (
-            <FeatureCard key={feature.title} feature={feature} />
+            <FeatureCard key={feature.title} feature={feature} to={bondLink(feature)} />
           ))}
         </SimpleGrid>
       </Stack>
 
-      <CollectionSample />
+      {sample && <CollectionSample collection={sample} />}
 
       <Text size="xs" c="dimmed">
         Сервис только информирует и не даёт инвестиционных рекомендаций. Данные - T-Invest API, Московская биржа, Банк России.
@@ -110,7 +121,7 @@ export function LandingPage() {
   );
 }
 
-function FeatureCard({ feature }: { feature: Feature }) {
+function FeatureCard({ feature, to }: { feature: Feature; to: string | undefined }) {
   return (
     <Card withBorder padding="lg">
       <Stack gap="sm" h="100%">
@@ -123,8 +134,8 @@ function FeatureCard({ feature }: { feature: Feature }) {
         <Text size="sm" c="dimmed" style={{ flexGrow: 1 }}>
           {feature.text}
         </Text>
-        {feature.to ? (
-          <Anchor component={Link} to={feature.to} size="sm">
+        {to ? (
+          <Anchor component={Link} to={to} size="sm">
             Открыть
           </Anchor>
         ) : (
@@ -141,15 +152,8 @@ function FeatureCard({ feature }: { feature: Feature }) {
  * Первые облигации первой подборки - что гость увидит внутри, на настоящих данных. Подборок нет или запрос не удался -
  * блока нет: лендинг работает и без бэка.
  */
-function CollectionSample() {
-  const collections = useCollections();
-  const first = collections.data?.[0];
-  return first ? <CollectionSampleTable slug={first.slug} /> : null;
-}
-
-function CollectionSampleTable({ slug }: { slug: string }) {
-  const { data } = useCollection(slug, 0, SAMPLE_SIZE);
-  if (!data?.bonds.content.length) {
+function CollectionSample({ collection: data }: { collection: BondCollectionPage }) {
+  if (!data.bonds.content.length) {
     return null;
   }
 

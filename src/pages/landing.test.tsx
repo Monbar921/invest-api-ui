@@ -50,6 +50,8 @@ const withCollection: [RegExp, unknown][] = [
   [/\/api\/bonds\/collections\/top-ofz\?/, collectionPage],
 ];
 
+const featureCard = (title: string) => screen.getByText(title).closest('.mantine-Card-root') as HTMLElement;
+
 const renderHome = (session = GUEST) => renderRoute(<HomePage />, { path: '/', url: '/', session });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -64,7 +66,7 @@ describe('лендинг', () => {
     expect(screen.getByRole('link', { name: 'Смотреть облигации' })).toHaveAttribute('href', '/bonds');
     expect(screen.getByText('Калькулятор дохода')).toBeInTheDocument();
     // портфель и уведомления - личные: ссылки нет, есть пометка
-    const portfolio = screen.getByText('Портфель').closest('.mantine-Card-root') as HTMLElement;
+    const portfolio = featureCard('Портфель');
     expect(within(portfolio).getByText('после входа')).toBeInTheDocument();
     expect(within(portfolio).queryByRole('link')).not.toBeInTheDocument();
     expect(screen.getByText(/не даёт инвестиционных рекомендаций/)).toBeInTheDocument();
@@ -87,6 +89,11 @@ describe('лендинг', () => {
     expect(screen.getByText('15,42 %')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Вся подборка' })).toHaveAttribute('href', '/collections/top-ofz');
     expect(calls).toContain('/api/bonds/collections/top-ofz?page=0&size=5');
+    // «Карточка облигации» ведёт на настоящую карточку - первую облигацию подборки, а не в список
+    expect(within(featureCard('Карточка облигации')).getByRole('link', { name: 'Открыть' })).toHaveAttribute(
+      'href',
+      '/bonds/SU26240RMFS0',
+    );
   });
 
   it('без подборок или при ошибке бэка - лендинг без блока данных', async () => {
@@ -96,6 +103,8 @@ describe('лендинг', () => {
     await waitFor(() => expect(calls).toContain('/api/bonds/collections'));
     expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    // облигации для примера нет - карточка ведёт в список
+    expect(within(featureCard('Карточка облигации')).getByRole('link', { name: 'Открыть' })).toHaveAttribute('href', '/bonds');
   });
 
   it('метаданные: canonical «/», title - название сайта', () => {
