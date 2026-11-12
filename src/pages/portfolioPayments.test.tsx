@@ -153,9 +153,9 @@ describe('PortfolioPage: выплаты', () => {
     const floaterRow = screen.getByRole('link', { name: 'Гидромашсервис 002Р-01' }).closest('tr')!;
     expect(within(floaterRow).getAllByText('не объявлен')).toHaveLength(2);
 
-    // заголовки месяцев с их итогами
-    expect(screen.getByText('декабрь 2026 г.')).toBeInTheDocument();
-    expect(screen.getByText('январь 2027 г.')).toBeInTheDocument();
+    // заголовки месяцев с их итогами: заглавная только первая буква, «г.» строчная
+    expect(screen.getByText('Декабрь 2026 г.')).toBeInTheDocument();
+    expect(screen.getByText('Январь 2027 г.')).toBeInTheDocument();
   });
 
   it('облигации, которых нет в системе, названы', async () => {

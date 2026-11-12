@@ -50,6 +50,13 @@ const PERIODS = [
 const monthFormat = new Intl.DateTimeFormat('ru-RU', { month: 'long', year: 'numeric' });
 const shortMonthFormat = new Intl.DateTimeFormat('ru-RU', { month: 'short', year: '2-digit' });
 
+const compactNumberFormat = new Intl.NumberFormat('ru-RU', { notation: 'compact', maximumFractionDigits: 1 });
+
+/** Заглавная только первая буква: CSS capitalize сделал бы «Ноябрь 2026 Г.» */
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 /** «декабрь 2026» из YYYY-MM */
 function monthLabel(month: string, format = monthFormat): string {
   const [year, monthIndex] = month.split('-').map(Number) as [number, number];
@@ -179,6 +186,8 @@ function MonthsChart({ months }: { months: PortfolioCalendarMonth[] }) {
         dataKey="month"
         series={[{ name: 'amount', label: 'Выплаты', color: 'teal.6' }]}
         valueFormatter={(value) => money(value, 'rub')}
+        // на оси - коротко («140 тыс.»): полная сумма с копейками не помещалась и обрезалась слева; полная - в подсказке
+        yAxisProps={{ width: 64, tickFormatter: (value: number) => compactNumberFormat.format(value) }}
         tickLine="y"
       />
       {(months.some((month) => month.incomplete) || withoutRate) && (
@@ -220,9 +229,7 @@ function MonthRows({ month, events }: { month: PortfolioCalendarMonth; events: P
     <>
       <Table.Tr bg="var(--mantine-color-gray-light)">
         <Table.Td colSpan={5}>
-          <Text fw={600} tt="capitalize">
-            {monthLabel(month.month)}
-          </Text>
+          <Text fw={600}>{capitalize(monthLabel(month.month))}</Text>
         </Table.Td>
         <Table.Td ta="right">
           <Stack gap={0} align="flex-end">
