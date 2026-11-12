@@ -1,6 +1,6 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { Bond, BondSearchItem, ProfitCalculation } from '../api/types';
+import type { Bond, BondSearchItem, BrokerLink, ProfitCalculation } from '../api/types';
 import { renderRoute } from '../test/render';
 import { BondPage } from './BondPage';
 import { CalculatorPage } from './CalculatorPage';
@@ -83,7 +83,7 @@ const byText = (text: string) => (_: string, element: Element | null) =>
   element?.textContent?.replace(/\s/g, ' ') === text && element.children.length === 0;
 
 /** Ответ на запрос выбирается по его URL: страница одновременно ищет, грузит облигацию и считает доход */
-function mockApi() {
+function mockApi(brokerLinks: BrokerLink[] = []) {
   const calls: { url: string; init?: RequestInit }[] = [];
   vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
     calls.push({ url, init });
@@ -94,7 +94,7 @@ function mockApi() {
         : url.endsWith('/calculation')
           ? calculation
           : url.endsWith('/broker-links')
-            ? [] // блок «Купить у брокера» без партнёров
+            ? brokerLinks // блок «Купить у брокера»: по умолчанию без партнёров
             : bond;
     return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
   });
@@ -104,6 +104,18 @@ function mockApi() {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('CalculatorPage', () => {
+  it('под расчётом показывает блок «Купить у брокера» выбранной облигации', async () => {
+    const calls = mockApi([
+      { partnerId: 'alpha', name: 'Альфа Брокер', url: 'https://alpha.test/x', advertiser: 'АО "Альфа"', erid: 'E1' },
+    ]);
+    renderRoute(<CalculatorPage />, { path: '/calculator', url: '/calculator?ticker=RU000A10DCK7' });
+
+    const block = await screen.findByRole('region', { name: 'Купить у брокера' });
+    expect(within(block).getByRole('link', { name: /Альфа Брокер/ })).toHaveAttribute('href', 'https://alpha.test/x');
+    expect(within(block).getByText('Реклама. АО "Альфа". erid: E1')).toBeInTheDocument();
+    expect(calls.map((call) => call.url)).toContain('/api/bonds/RU000A10DCK7/broker-links');
+  });
+
   it('ищет облигацию по мере ввода и открывает выбранную', async () => {
     const calls = mockApi();
     const { router } = renderRoute(<CalculatorPage />, { path: '/calculator', url: '/calculator' });

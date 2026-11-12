@@ -1,5 +1,6 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { GUEST, type Session } from '../api/session';
 import type { BrokerLink } from '../api/types';
 import { renderRoute } from '../test/render';
 import { BrokerLinks } from './BrokerLinks';
@@ -21,26 +22,28 @@ const links: BrokerLink[] = [
   },
 ];
 
-/** Отвечает ссылками на GET и 204 на клик; запросы складывает в calls */
-function mockBrokerApi(body: unknown, status = 200) {
+/** Отвечает ссылками на GET и clickStatus (по умолчанию 204) на клик; запросы складывает в calls */
+function mockBrokerApi(body: unknown, status = 200, clickStatus = 204) {
   const calls: { url: string; method: string; keepalive?: boolean }[] = [];
   vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
     calls.push({ url, method: init?.method ?? 'GET', keepalive: init?.keepalive });
     if (url.endsWith('/click')) {
-      return new Response(null, { status: 204 });
+      return clickStatus === 204
+        ? new Response(null, { status: 204 })
+        : new Response(JSON.stringify({ title: 'Internal Server Error' }), { status: clickStatus });
     }
     return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
   });
   return calls;
 }
 
-const renderBlock = () =>
+const renderBlock = (ticker = 'SU26238RMFS4', session?: Session) =>
   renderRoute(
     <>
-      <BrokerLinks ticker="SU26238RMFS4" />
+      <BrokerLinks ticker={ticker} />
       <div>карточка</div>
     </>,
-    { path: '/bonds/:ticker', url: '/bonds/SU26238RMFS4' },
+    { path: '/bonds/:ticker', url: `/bonds/${encodeURIComponent(ticker)}`, session },
   );
 
 describe('Купить у брокера', () => {
@@ -86,6 +89,60 @@ describe('Купить у брокера', () => {
     await waitFor(() =>
       expect(calls).toContainEqual({
         url: '/api/bonds/SU26238RMFS4/broker-links/beta/click',
+        method: 'POST',
+        keepalive: true,
+      }),
+    );
+  });
+
+  it('партнёры идут в порядке ответа бэка', async () => {
+    const gamma: BrokerLink = { ...links[0]!, partnerId: 'gamma', name: 'Гамма', url: 'https://gamma.test/x' };
+    mockBrokerApi([links[1], gamma, links[0]]);
+    renderBlock();
+
+    await screen.findByRole('link', { name: /Бета Инвест/ });
+    expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual(['Бета Инвест', 'Гамма', 'Альфа Брокер']);
+  });
+
+  it('сбой учёта клика пользователю не показывается, ссылка остаётся', async () => {
+    const calls = mockBrokerApi(links, 200, 500);
+    renderBlock();
+
+    await userEvent.click(await screen.findByRole('link', { name: /Альфа Брокер/ }));
+
+    await waitFor(() => expect(calls.filter((call) => call.method === 'POST')).toHaveLength(1));
+    // ошибка мутации глотается: ни текста ошибки, ни повтора, блок на месте
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(calls.filter((call) => call.method === 'POST')).toHaveLength(1);
+    expect(screen.queryByText(/Internal Server Error|Ошибка/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Альфа Брокер/ })).toHaveAttribute('href', links[0]!.url);
+    expect(screen.getByText('карточка')).toBeInTheDocument();
+  });
+
+  it('тикер со спецсимволами кодируется в адресах запросов', async () => {
+    const calls = mockBrokerApi(links);
+    renderBlock('A/B C#?');
+
+    await userEvent.click(await screen.findByRole('link', { name: /Бета Инвест/ }));
+
+    await waitFor(() =>
+      expect(calls.map((call) => call.url)).toEqual([
+        '/api/bonds/A%2FB%20C%23%3F/broker-links',
+        '/api/bonds/A%2FB%20C%23%3F/broker-links/beta/click',
+      ]),
+    );
+  });
+
+  it('гость тоже отправляет учёт клика', async () => {
+    const calls = mockBrokerApi(links);
+    renderBlock('SU26238RMFS4', GUEST);
+
+    await userEvent.click(await screen.findByRole('link', { name: /Альфа Брокер/ }));
+
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        url: '/api/bonds/SU26238RMFS4/broker-links/alpha/click',
         method: 'POST',
         keepalive: true,
       }),

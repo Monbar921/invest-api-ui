@@ -1,7 +1,7 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Bond, Page } from '../api/types';
-import { mockFetch, renderRoute } from '../test/render';
+import { mockFetch, mockFetchByUrl, renderRoute } from '../test/render';
 import { BondPage } from './BondPage';
 import { BondsPage } from './BondsPage';
 
@@ -245,6 +245,25 @@ describe('BondPage', () => {
     expect(await screen.findByText('11,17 % годовых')).toBeInTheDocument();
     expect(screen.getByText('к оферте 12,24 % · 01.03.2028')).toBeInTheDocument();
     expect(screen.getByText('с амортизацией: гасится частями')).toBeInTheDocument();
+  });
+
+  it('показывает блок «Купить у брокера» со ссылками партнёров', async () => {
+    const calls = mockFetchByUrl([
+      [
+        /\/api\/bonds\/RU000A10EQ34\/broker-links$/,
+        [{ partnerId: 'tbank', name: 'Т-Банк', url: 'https://tbank-online.com/baf/XXXX', advertiser: 'АО "ТБанк"', erid: null }],
+      ],
+      [/\/candles\?/, []],
+      [/\/api\/bonds\/RU000A10EQ34$/, bond('RU000A10EQ34')],
+    ]);
+
+    renderRoute(<BondPage />, { path: '/bonds/:ticker', url: '/bonds/RU000A10EQ34' });
+
+    const block = await screen.findByRole('region', { name: 'Купить у брокера' });
+    expect(within(block).getByRole('link', { name: /Т-Банк/ })).toHaveAttribute('href', 'https://tbank-online.com/baf/XXXX');
+    expect(within(block).getByText('Реклама')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Облигация RU000A10EQ34' })).toBeInTheDocument();
+    expect(calls).toContain('/api/bonds/RU000A10EQ34/broker-links');
   });
 
   it('неизвестный тикер - 404', async () => {

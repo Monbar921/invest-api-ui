@@ -23,3 +23,6 @@ class ResizeObserverStub {
 }
 
 window.ResizeObserver = ResizeObserverStub;
+
+// и scrollIntoView: Combobox Mantine прокручивает к выбранному пункту по таймеру, уже после конца теста
+Element.prototype.scrollIntoView = () => {};
