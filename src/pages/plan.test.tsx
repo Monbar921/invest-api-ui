@@ -264,5 +264,17 @@ describe('PlanPage', () => {
       expect(await screen.findByText('Оплата не прошла')).toBeInTheDocument();
       expect(screen.getByText(/Недостаточно средств\. Тариф не изменился/)).toBeInTheDocument();
     });
+
+    it('неизвестный платёж в адресе: понятное сообщение по-русски', async () => {
+      stubFetch([
+        ['GET', /\/api\/account\/plan$/, FREE_PLAN],
+        ['GET', /\/api\/account\/payments$/, []],
+      ]);
+      renderRoute(<PlanPage />, { path: '/plan', url: '/plan?payment=999' });
+
+      expect(await screen.findByText('Не удалось узнать статус оплаты')).toBeInTheDocument();
+      expect(screen.getByText('Платёж не найден. Тариф и история платежей - ниже.')).toBeInTheDocument();
+      expect(screen.queryByText('Not Found')).not.toBeInTheDocument();
+    });
   });
 });

@@ -300,6 +300,7 @@ export function usePaymentStatus(id: number | null) {
       return payment;
     },
     enabled: id != null,
+    retry: notFoundNoRetry,
     refetchInterval: (query) =>
       query.state.data?.status === 'PENDING' && query.state.dataUpdateCount < PAYMENT_POLL_ATTEMPTS
         ? PAYMENT_POLL_INTERVAL_MS

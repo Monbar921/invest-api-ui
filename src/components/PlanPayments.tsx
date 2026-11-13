@@ -1,6 +1,7 @@
 import { Alert, Anchor, Badge, Button, Checkbox, Group, Loader, Modal, Stack, Table, Text, Title } from '@mantine/core';
 import { IconCreditCard, IconRefresh } from '@tabler/icons-react';
 import { useEffect, useRef, useState } from 'react';
+import { ApiError } from '../api/client';
 import { usePaymentMutations, usePayments, usePaymentStatus } from '../api/queries';
 import type { AccountPlan, Payment, PaymentStatus, Plan } from '../api/types';
 import { trackGoal } from '../lib/analytics';
@@ -110,7 +111,11 @@ export function PaymentResult({ id, onClose }: { id: number; onClose: () => void
   if (payment.isError) {
     return (
       <Alert color="red" withCloseButton onClose={onClose} title="Не удалось узнать статус оплаты">
-        <ApiErrorText error={payment.error} />
+        {payment.error instanceof ApiError && payment.error.status === 404 ? (
+          'Платёж не найден. Тариф и история платежей - ниже.'
+        ) : (
+          <ApiErrorText error={payment.error} />
+        )}
       </Alert>
     );
   }
