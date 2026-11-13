@@ -139,7 +139,11 @@ export function ClosedPositions({ closed }: { closed: PortfolioClosedPosition[] 
                 <Table.Th ta="right">Куплено, шт.</Table.Th>
                 <Table.Th>Даты</Table.Th>
                 <Table.Th ta="right">Полный доход</Table.Th>
-                <Table.Th ta="right">XIRR</Table.Th>
+                <Table.Th ta="right">
+                  <Tooltip label="Годовая доходность с учётом дат вложений и выплат, до налога" multiline w={260}>
+                    <span style={{ cursor: 'help' }}>XIRR</span>
+                  </Tooltip>
+                </Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>

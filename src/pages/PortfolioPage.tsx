@@ -172,14 +172,21 @@ function Portfolio() {
                   суммы, заплаченной в рублях (не указана - по курсу ЦБ на дату покупки), до стоимости по сегодняшнему курсу.
                   Полный доход - за всё время, с продажами и погашениями: доход от цены + полученные купоны и амортизация + НКД −
                   комиссии − НДФЛ (упрощённо, с каждой облигации отдельно). XIRR - годовая доходность с учётом дат вложений и
-                  выплат, до налога. НКД, который не ввели, считается по графику купонов.
+                  выплат, до налога; для позиций моложе 30 дней не считается. НКД, который не ввели, считается по графику купонов.
                 </Text>
               </>
             )}
           </Stack>
         </Tabs.Panel>
         <Tabs.Panel value={TRADES_TAB}>
-          <PortfolioTrades />
+          <PortfolioTrades
+            holdings={groups.map((group) => ({
+              ticker: group.ticker,
+              name: group.bondName,
+              currentPrice: group.currentPrice,
+              quantity: group.quantity,
+            }))}
+          />
         </Tabs.Panel>
         <Tabs.Panel value={PAYMENTS_TAB}>
           <PortfolioPayments />
@@ -331,7 +338,11 @@ function PositionsTable({
                 </Tooltip>
               </Table.Th>
               <Table.Th ta="right">
-                <Tooltip label="Годовая доходность с учётом дат вложений и выплат, до налога" multiline w={260}>
+                <Tooltip
+                  label="Годовая доходность с учётом дат вложений и выплат, до налога. Считается, когда от первой покупки прошло не меньше 30 дней"
+                  multiline
+                  w={280}
+                >
                   <span style={{ cursor: 'help' }}>XIRR</span>
                 </Tooltip>
               </Table.Th>
@@ -533,7 +544,7 @@ function PositionQuantity({ position }: { position: PortfolioPosition }) {
   }
   return (
     <Tooltip label={remaining === 0 ? 'Покупка продана целиком' : 'Часть покупки продана'}>
-      <Text size="sm" style={{ cursor: 'help' }}>
+      <Text size="sm" style={{ cursor: 'help', whiteSpace: 'nowrap' }}>
         {formatNumber(remaining)} из {formatNumber(position.quantity)}
       </Text>
     </Tooltip>

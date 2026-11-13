@@ -21,6 +21,13 @@ export function formatPercent(value: number | null | undefined): string {
   return value == null ? EMPTY : `${numberFormat.format(value)} %`;
 }
 
+const priceFormat = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 4 });
+
+/** Цена сделки в % номинала - с точностью, как её вводят (до 4 знаков): 67,635 %, а не 67,64 % */
+export function formatPricePercent(value: number | null | undefined): string {
+  return value == null ? EMPTY : `${priceFormat.format(value)} %`;
+}
+
 /** Бэк отдаёт валюту в нижнем регистре (rub, usd), Intl ждёт ISO-код в верхнем */
 export function formatMoney(money: Money | null | undefined): string {
   if (money?.quantity == null) {

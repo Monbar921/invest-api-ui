@@ -1,18 +1,15 @@
-import { Button, Group, Stack, Text, TextInput } from '@mantine/core';
-import { useQueryClient } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
-import { fetchBond } from '../api/bonds';
+import { Button, Group, Select, Stack, Text, TextInput } from '@mantine/core';
+import { useState } from 'react';
 import { MAX_BUY_PRICE, MAX_POSITION_QUANTITY } from '../api/portfolio';
-import { bondKeys, useSaleMutations } from '../api/queries';
+import { useSaleMutations } from '../api/queries';
 import type { PortfolioSaleRequest, PortfolioTrade } from '../api/types';
 import { isIsoDate, todayIso } from '../lib/dates';
 import { formatNumber } from '../lib/format';
 import { ApiErrorText } from './ApiErrorText';
-import { BondSearch } from './BondSearch';
 import { BrokerSelect } from './BrokerSelect';
 import { NumberField } from './NumberField';
 
-/** Облигация, которую продают из строки портфеля: сколько её есть и текущая цена */
+/** Облигация, которую можно продать: сколько её есть и текущая цена */
 export interface SaleBond {
   ticker: string;
   name: string | null;
@@ -22,24 +19,47 @@ export interface SaleBond {
 }
 
 /**
- * Новая продажа или изменение существующей. Цена по умолчанию - текущая; НКД и комиссия необязательны: без НКД он
- * считается по графику купонов, без комиссии - 0. Хватает ли облигаций на дату продажи, проверяет бэк (422).
+ * Новая продажа или изменение существующей. Облигация - заданная (из строки портфеля) или выбор из тех, что есть в
+ * портфеле (holdings): продать можно только то, что куплено. Цена по умолчанию - текущая; НКД и комиссия
+ * необязательны: без НКД он считается по графику купонов, без комиссии - 0. Хватает ли облигаций на дату продажи,
+ * проверяет бэк (422); его ошибка пропадает, как только поле изменили.
  */
-export function SaleForm({ sale, preset, onDone }: { sale?: PortfolioTrade; preset?: SaleBond; onDone: () => void }) {
-  const queryClient = useQueryClient();
+export function SaleForm({
+  sale,
+  preset,
+  holdings = [],
+  onDone,
+}: {
+  sale?: PortfolioTrade;
+  preset?: SaleBond;
+  holdings?: SaleBond[];
+  onDone: () => void;
+}) {
   const { create, update } = useSaleMutations();
+  const mutation = sale ? update : create;
   const today = todayIso();
   const [ticker, setTicker] = useState<string | null>(sale?.ticker ?? preset?.ticker ?? null);
-  const [tickerName, setTickerName] = useState<string | null>(preset?.name ?? null);
   const [quantity, setQuantity] = useState<number | undefined>(sale?.quantity ?? preset?.quantity ?? 1);
   const [sellPrice, setSellPrice] = useState<number | undefined>(sale?.price ?? preset?.currentPrice ?? undefined);
-  const priceTouched = useRef(sale != null);
+  // пользователь ввёл свою цену - выбор облигации её не затирает
+  const [priceTouched, setPriceTouched] = useState(sale != null);
   const [sellDate, setSellDate] = useState(sale?.date ?? today);
   // НКД, посчитанный по графику, в форму не подставляется: его не вводили
   const [aci, setAci] = useState<number | undefined>(sale && !sale.aciCalculated ? (sale.aci ?? undefined) : undefined);
   const [commission, setCommission] = useState<number | undefined>(sale?.commission ?? undefined);
   const [broker, setBroker] = useState<string | null>(sale?.broker ?? null);
   const [submitted, setSubmitted] = useState(false);
+  const selected = preset ?? holdings.find((holding) => holding.ticker === ticker) ?? null;
+
+  /** Ответ бэка относится к прежним значениям - после правки поля он больше не верен */
+  const changed =
+    <T,>(set: (value: T) => void) =>
+    (value: T) => {
+      if (mutation.isError) {
+        mutation.reset();
+      }
+      set(value);
+    };
 
   const errors = {
     ticker: sale == null && !ticker ? 'Выберите облигацию' : undefined,
@@ -54,24 +74,17 @@ export function SaleForm({ sale, preset, onDone }: { sale?: PortfolioTrade; pres
     commission: commission != null && commission < 0 ? 'Не меньше 0' : undefined,
   };
   const valid = Object.values(errors).every((error) => error == null);
-  const mutation = sale ? update : create;
 
   const onTickerChange = (next: string | null) => {
     setTicker(next);
-    setTickerName(null);
-    if (!next) {
-      return;
+    const holding = holdings.find((item) => item.ticker === next);
+    if (holding) {
+      // по умолчанию - всё, что есть, по текущей цене, пока пользователь не ввёл свою
+      setQuantity(holding.quantity ?? 1);
+      if (holding.currentPrice != null && !priceTouched) {
+        setSellPrice(holding.currentPrice);
+      }
     }
-    void queryClient
-      .fetchQuery({ queryKey: bondKeys.detail(next), queryFn: () => fetchBond(next) })
-      .then((bond) => {
-        setTickerName(bond.name);
-        const current = bond.price?.percentagePrice;
-        if (current != null) {
-          setSellPrice((value) => (priceTouched.current ? value : current));
-        }
-      })
-      .catch(() => undefined);
   };
 
   const submit = () => {
@@ -103,20 +116,23 @@ export function SaleForm({ sale, preset, onDone }: { sale?: PortfolioTrade; pres
           {fixedName}
         </Text>
       ) : (
-        <div>
-          <BondSearch value={ticker} selectedName={tickerName} onChange={onTickerChange} />
-          {shown(errors.ticker) && (
-            <Text size="xs" c="red" mt={4}>
-              {errors.ticker}
-            </Text>
-          )}
-        </div>
+        <Select
+          label="Облигация"
+          placeholder={holdings.length > 0 ? 'Из портфеля' : 'В портфеле нет облигаций для продажи'}
+          data={holdings.map((holding) => ({ value: holding.ticker, label: holding.name ?? holding.ticker }))}
+          value={ticker}
+          onChange={changed(onTickerChange)}
+          searchable
+          disabled={holdings.length === 0}
+          nothingFoundMessage="Нет в портфеле"
+          error={shown(errors.ticker)}
+        />
       )}
       <NumberField
         label="Количество, шт."
-        description={preset?.quantity != null ? `В портфеле ${formatNumber(preset.quantity)} шт.` : undefined}
+        description={selected?.quantity != null ? `В портфеле ${formatNumber(selected.quantity)} шт.` : undefined}
         value={quantity}
-        onChange={setQuantity}
+        onChange={changed(setQuantity)}
         min={1}
         max={MAX_POSITION_QUANTITY}
         allowDecimal={false}
@@ -127,10 +143,10 @@ export function SaleForm({ sale, preset, onDone }: { sale?: PortfolioTrade; pres
         label="Цена продажи, % номинала"
         description="Выкуп по оферте - 100"
         value={sellPrice}
-        onChange={(value) => {
-          priceTouched.current = true;
+        onChange={changed((value: number | undefined) => {
+          setPriceTouched(true);
           setSellPrice(value);
-        }}
+        })}
         min={0}
         decimalScale={4}
         decimalSeparator=","
@@ -141,14 +157,14 @@ export function SaleForm({ sale, preset, onDone }: { sale?: PortfolioTrade; pres
         type="date"
         value={sellDate}
         max={today}
-        onChange={(event) => setSellDate(event.currentTarget.value)}
+        onChange={(event) => changed(setSellDate)(event.currentTarget.value)}
         error={shown(errors.sellDate)}
       />
       <NumberField
         label="НКД, полученный при продаже"
         description="На всю продажу, в валюте облигации. Пусто - по графику купонов"
         value={aci}
-        onChange={setAci}
+        onChange={changed(setAci)}
         min={0}
         decimalScale={2}
         decimalSeparator=","
@@ -159,14 +175,14 @@ export function SaleForm({ sale, preset, onDone }: { sale?: PortfolioTrade; pres
         label="Комиссия брокера"
         description="В валюте облигации. Пусто - без комиссии"
         value={commission}
-        onChange={setCommission}
+        onChange={changed(setCommission)}
         min={0}
         decimalScale={2}
         decimalSeparator=","
         thousandSeparator=" "
         error={shown(errors.commission)}
       />
-      <BrokerSelect value={broker} onChange={setBroker} />
+      <BrokerSelect value={broker} onChange={changed(setBroker)} />
       {mutation.isError && <ApiErrorText error={mutation.error} />}
       <Group justify="flex-end">
         <Button variant="default" onClick={onDone}>

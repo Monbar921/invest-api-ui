@@ -18,11 +18,11 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import { usePortfolioTrades, useSaleMutations } from '../api/queries';
 import type { PortfolioTrade, PortfolioTradeType } from '../api/types';
-import { formatDate, formatNumber, formatPercent } from '../lib/format';
+import { formatDate, formatNumber, formatPricePercent } from '../lib/format';
 import { money } from '../lib/money';
 import { ApiErrorText } from './ApiErrorText';
 import { ErrorState } from './ErrorState';
-import { SaleForm } from './SaleForm';
+import { SaleForm, type SaleBond } from './SaleForm';
 
 const TYPE_LABELS: Record<PortfolioTradeType, { label: string; color: string }> = {
   BUY: { label: 'Покупка', color: 'blue' },
@@ -34,7 +34,7 @@ const TYPE_LABELS: Record<PortfolioTradeType, { label: string; color: string }> 
  * Вкладка «Сделки»: покупки, продажи и погашения, новые первыми. Продажи меняются и удаляются здесь, покупки - на
  * вкладке «Покупки». Погашение не вводится - оно следует из даты погашения облигации.
  */
-export function PortfolioTrades() {
+export function PortfolioTrades({ holdings }: { holdings: SaleBond[] }) {
   const trades = usePortfolioTrades();
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<PortfolioTrade | null>(null);
@@ -81,7 +81,7 @@ export function PortfolioTrades() {
       )}
 
       <Modal opened={adding} onClose={() => setAdding(false)} title="Новая продажа">
-        {adding && <SaleForm onDone={() => setAdding(false)} />}
+        {adding && <SaleForm holdings={holdings} onDone={() => setAdding(false)} />}
       </Modal>
       <Modal
         opened={editing != null}
@@ -114,7 +114,7 @@ function TradeRow({ trade, onEdit }: { trade: PortfolioTrade; onEdit: () => void
         )}
       </Table.Td>
       <Table.Td ta="right">{formatNumber(trade.quantity)}</Table.Td>
-      <Table.Td ta="right">{formatPercent(trade.price)}</Table.Td>
+      <Table.Td ta="right">{formatPricePercent(trade.price)}</Table.Td>
       <Table.Td ta="right">{money(trade.amount, trade.currency)}</Table.Td>
       <Table.Td ta="right">
         <Text size="sm">{money(trade.aci, trade.currency)}</Text>

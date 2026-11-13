@@ -114,7 +114,7 @@ const trades: PortfolioTrade[] = [
     currency: 'rub',
     date: '2026-10-01',
     quantity: 6,
-    price: 101,
+    price: 67.635,
     amount: 6060,
     aci: 12.5,
     aciCalculated: true,
@@ -142,13 +142,21 @@ const trades: PortfolioTrade[] = [
 const byText = (text: string) => (_: string, element: Element | null) =>
   element?.textContent?.replace(/\s/g, ' ') === text && element.children.length === 0;
 
-function mockApi(current: Portfolio = portfolio) {
+const SALE_REJECTED = { title: 'Unprocessable Entity', status: 422, detail: 'Не хватает облигаций SU26238RMFS4' };
+
+function mockApi(current: Portfolio = portfolio, { rejectSale = false } = {}) {
   const calls: { url: string; init?: RequestInit }[] = [];
   vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
     calls.push({ url, init });
     const method = init?.method ?? 'GET';
     if (method === 'DELETE') {
       return new Response(null, { status: 204 });
+    }
+    if (rejectSale && method === 'POST') {
+      return new Response(JSON.stringify(SALE_REJECTED), {
+        status: 422,
+        headers: { 'Content-Type': 'application/problem+json' },
+      });
     }
     const body = url.endsWith('/api/portfolio/brokers')
       ? []
@@ -277,5 +285,50 @@ describe('PortfolioPage: полный доход', () => {
     await waitFor(() =>
       expect(calls.some((call) => call.init?.method === 'DELETE' && call.url === '/api/portfolio/sales/7')).toBe(true),
     );
+  });
+  it('цена сделки - с точностью до 4 знаков', async () => {
+    mockApi();
+    renderPage('/portfolio?tab=trades');
+
+    expect(await screen.findByText('67,635 %')).toBeInTheDocument();
+  });
+
+  it('«Добавить продажу» предлагает только облигации из портфеля', async () => {
+    const calls = mockApi();
+    renderPage('/portfolio?tab=trades');
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Добавить продажу' }));
+    const dialog = await screen.findByRole('dialog');
+    const select = within(dialog).getByLabelText('Облигация');
+    // список - облигации портфеля, он приходит вместе с портфелем
+    await waitFor(() => expect(select).toBeEnabled());
+    // в списке - только облигации портфеля: «Авто» (есть в сделках, но продана) не находится
+    await userEvent.type(select, 'Авто');
+    expect(await within(document.body).findByText('Нет в портфеле')).toBeInTheDocument();
+    await userEvent.clear(select);
+    await userEvent.type(select, 'ОФЗ{ArrowDown}{Enter}');
+    expect(select).toHaveValue('ОФЗ 26238');
+
+    // по умолчанию - всё непроданное по текущей цене
+    expect(within(dialog).getByLabelText(/Количество/)).toHaveValue('4');
+    expect(within(dialog).getByLabelText(/Цена продажи/)).toHaveValue('100');
+    // поиска по всем облигациям нет
+    expect(calls.some((call) => call.url.includes('/search'))).toBe(false);
+  });
+
+  it('ошибка бэка пропадает, когда поле изменили', async () => {
+    mockApi(portfolio, { rejectSale: true });
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Продать: ОФЗ 26238' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Продать' }));
+    expect(await within(dialog).findByText(/Не хватает облигаций/)).toBeInTheDocument();
+
+    const quantity = within(dialog).getByLabelText(/Количество/);
+    await userEvent.clear(quantity);
+    await userEvent.type(quantity, '2');
+
+    expect(within(dialog).queryByText(/Не хватает облигаций/)).not.toBeInTheDocument();
   });
 });
