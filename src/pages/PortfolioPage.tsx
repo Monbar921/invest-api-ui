@@ -18,7 +18,9 @@ import {
   Tooltip,
 } from '@mantine/core';
 import {
+  IconArrowsExchange,
   IconCalendarDollar,
+  IconCash,
   IconChevronDown,
   IconChevronRight,
   IconListDetails,
@@ -32,7 +34,14 @@ import { Link, useSearchParams } from 'react-router';
 import { fetchBond } from '../api/bonds';
 import { MAX_BUY_PRICE, MAX_POSITION_QUANTITY } from '../api/portfolio';
 import { bondKeys, usePortfolio, usePortfolioMutations } from '../api/queries';
-import type { PortfolioGroup, PortfolioPosition, PortfolioPositionRequest, PortfolioSummary, PortfolioTotal } from '../api/types';
+import type {
+  PortfolioGroup,
+  PortfolioIncome,
+  PortfolioPosition,
+  PortfolioPositionRequest,
+  PortfolioSummary,
+  PortfolioTotal,
+} from '../api/types';
 import { BondSearch } from '../components/BondSearch';
 import { BrokerSelect } from '../components/BrokerSelect';
 import { useSession } from '../api/session';
@@ -40,10 +49,14 @@ import { ApiErrorText } from '../components/ApiErrorText';
 import { ErrorState } from '../components/ErrorState';
 import { LoginRequired } from '../components/LoginRequired';
 import { NumberField } from '../components/NumberField';
+import { ClosedPositions, IncomeCells, IncomeSummaryCard, TaxRateControl } from '../components/PortfolioIncome';
 import { PortfolioPayments } from '../components/PortfolioPayments';
+import { PortfolioTrades } from '../components/PortfolioTrades';
+import { SaleForm, type SaleBond } from '../components/SaleForm';
 import { isIsoDate, todayIso } from '../lib/dates';
 import { usePageMeta } from '../lib/seo';
-import { formatChange, formatDate, formatMoney, formatNumber, formatPercent, isRubCurrency, plural } from '../lib/format';
+import { formatDate, formatNumber, formatPercent, isRubCurrency, plural } from '../lib/format';
+import { money, revenueColor, signedMoney, signedPercent } from '../lib/money';
 
 /** Облигация, выбранная заранее: «+» в строке облигации открывает новую покупку уже с ней */
 interface PresetBond {
@@ -53,7 +66,10 @@ interface PresetBond {
   currentPrice: number | null;
 }
 
-/** «Портфель»: покупки облигаций - строкой на облигацию, их текущая стоимость и доход от цены покупки */
+/**
+ * «Портфель»: покупки облигаций - строкой на облигацию, их текущая стоимость, доход от цены покупки и полный доход
+ * (купоны, НКД, комиссии, налог, XIRR); закрытые позиции, сделки и выплаты
+ */
 export function PortfolioPage() {
   const { authenticated } = useSession();
   usePageMeta({ title: 'Портфель', noindex: true });
@@ -68,16 +84,23 @@ export function PortfolioPage() {
 }
 
 const POSITIONS_TAB = 'positions';
+const TRADES_TAB = 'trades';
 const PAYMENTS_TAB = 'payments';
+const OTHER_TABS = [TRADES_TAB, PAYMENTS_TAB];
 
 function Portfolio() {
-  const portfolio = usePortfolio();
-  // вкладка - в адресе: на «Выплаты» можно дать ссылку, и она остаётся после обновления страницы
+  // ставка НДФЛ полного дохода - как в калькуляторе, по умолчанию 13 %
+  const [taxRate, setTaxRate] = useState('13');
+  const portfolio = usePortfolio(taxRate === 'none' ? null : Number(taxRate));
+  // вкладка - в адресе: на «Выплаты» и «Сделки» можно дать ссылку, и она остаётся после обновления страницы
   const [searchParams, setSearchParams] = useSearchParams();
-  const tab = searchParams.get('tab') === PAYMENTS_TAB ? PAYMENTS_TAB : POSITIONS_TAB;
+  const requestedTab = searchParams.get('tab');
+  const tab = requestedTab != null && OTHER_TABS.includes(requestedTab) ? requestedTab : POSITIONS_TAB;
   const [adding, setAdding] = useState<{ bond?: PresetBond } | null>(null);
   const [editing, setEditing] = useState<PortfolioPosition | null>(null);
+  const [selling, setSelling] = useState<SaleBond | null>(null);
   const groups = portfolio.data?.groups ?? [];
+  const closed = portfolio.data?.closed ?? [];
 
   return (
     <Stack gap="lg">
@@ -90,12 +113,17 @@ function Portfolio() {
 
       <Tabs
         value={tab}
-        onChange={(value) => setSearchParams(value === PAYMENTS_TAB ? { tab: PAYMENTS_TAB } : {}, { replace: true })}
+        onChange={(value) =>
+          setSearchParams(value != null && OTHER_TABS.includes(value) ? { tab: value } : {}, { replace: true })
+        }
         keepMounted={false}
       >
         <Tabs.List mb="lg">
           <Tabs.Tab value={POSITIONS_TAB} leftSection={<IconListDetails size={16} />}>
             Покупки
+          </Tabs.Tab>
+          <Tabs.Tab value={TRADES_TAB} leftSection={<IconArrowsExchange size={16} />}>
+            Сделки
           </Tabs.Tab>
           <Tabs.Tab value={PAYMENTS_TAB} leftSection={<IconCalendarDollar size={16} />}>
             Выплаты
@@ -105,34 +133,53 @@ function Portfolio() {
           <Stack gap="lg">
             {portfolio.isPending && <Loader size="sm" />}
             {portfolio.isError && <ErrorState error={portfolio.error} onRetry={() => void portfolio.refetch()} />}
-            {portfolio.data && groups.length === 0 && (
+            {portfolio.data && groups.length === 0 && closed.length === 0 && (
               <Text c="dimmed">В портфеле пока ничего нет. Добавьте покупку: облигацию, количество, цену и дату.</Text>
             )}
-            {portfolio.data && groups.length > 0 && (
+            {portfolio.data && (groups.length > 0 || closed.length > 0) && (
               <>
-                <Totals totals={portfolio.data.totals} summary={portfolio.data.summary} />
-                <PositionsTable
-                  groups={groups}
-                  onEdit={setEditing}
-                  onAdd={(group) =>
-                    setAdding({
-                      bond: {
+                <Group justify="flex-end">
+                  <TaxRateControl value={taxRate} onChange={setTaxRate} />
+                </Group>
+                <Totals totals={portfolio.data.totals} summary={portfolio.data.summary} income={portfolio.data.income} />
+                {groups.length > 0 && (
+                  <PositionsTable
+                    groups={groups}
+                    onEdit={setEditing}
+                    onSell={(group) =>
+                      setSelling({
                         ticker: group.ticker,
                         name: group.bondName,
-                        currency: group.currency,
                         currentPrice: group.currentPrice,
-                      },
-                    })
-                  }
-                />
+                        quantity: group.quantity,
+                      })
+                    }
+                    onAdd={(group) =>
+                      setAdding({
+                        bond: {
+                          ticker: group.ticker,
+                          name: group.bondName,
+                          currency: group.currency,
+                          currentPrice: group.currentPrice,
+                        },
+                      })
+                    }
+                  />
+                )}
+                <ClosedPositions closed={closed} />
                 <Text size="xs" c="dimmed">
-                  Доход - только от изменения цены: (текущая цена − цена покупки) × номинал × количество. Купоны, НКД и комиссии
-                  не учитываются. Доход в рублях - от суммы, заплаченной в рублях (не указана - по курсу ЦБ на дату покупки), до
-                  стоимости по сегодняшнему курсу.
+                  Доход от цены - по непроданным облигациям: (текущая цена − цена покупки) × номинал × количество; в рублях - от
+                  суммы, заплаченной в рублях (не указана - по курсу ЦБ на дату покупки), до стоимости по сегодняшнему курсу.
+                  Полный доход - за всё время, с продажами и погашениями: доход от цены + полученные купоны и амортизация + НКД −
+                  комиссии − НДФЛ (упрощённо, с каждой облигации отдельно). XIRR - годовая доходность с учётом дат вложений и
+                  выплат, до налога. НКД, который не ввели, считается по графику купонов.
                 </Text>
               </>
             )}
           </Stack>
+        </Tabs.Panel>
+        <Tabs.Panel value={TRADES_TAB}>
+          <PortfolioTrades />
         </Tabs.Panel>
         <Tabs.Panel value={PAYMENTS_TAB}>
           <PortfolioPayments />
@@ -149,31 +196,11 @@ function Portfolio() {
       >
         {editing && <PositionForm position={editing} onDone={() => setEditing(null)} />}
       </Modal>
+      <Modal opened={selling != null} onClose={() => setSelling(null)} title="Продажа">
+        {selling && <SaleForm preset={selling} onDone={() => setSelling(null)} />}
+      </Modal>
     </Stack>
   );
-}
-
-/** Цвет дохода: прибыль зелёная, убыток красный */
-function revenueColor(value: number | null): string | undefined {
-  if (value == null || value === 0) {
-    return undefined;
-  }
-  return value > 0 ? 'teal' : 'red';
-}
-
-function money(value: number | null, currency: string | null): string {
-  return formatMoney({ quantity: value, currency });
-}
-
-function signedMoney(value: number | null, currency: string | null): string {
-  if (value == null) {
-    return '—';
-  }
-  const formatted = money(Math.abs(value), currency);
-  if (value > 0) {
-    return `+${formatted}`;
-  }
-  return value < 0 ? `−${formatted}` : formatted;
 }
 
 /**
@@ -191,21 +218,26 @@ function RubCaption({ value, currency, signed = false }: { value: number | null;
   );
 }
 
-function signedPercent(value: number | null): string {
-  return value == null ? '—' : `${formatChange(value)} %`;
-}
-
 /**
  * Итоги: первым - весь портфель в рублях, дальше по валютам (суммы в разных валютах не складываются). Карточки
  * «Всего» нет, если у какой-то валюты нет курса: без неё сумма выдавала бы себя за весь портфель.
  */
-function Totals({ totals, summary }: { totals: PortfolioTotal[]; summary: PortfolioSummary | null }) {
-  if (totals.length === 0) {
+function Totals({
+  totals,
+  summary,
+  income,
+}: {
+  totals: PortfolioTotal[];
+  summary: PortfolioSummary | null;
+  income: PortfolioIncome | null | undefined;
+}) {
+  if (totals.length === 0 && !income) {
     return null;
   }
-  const cards = totals.length + (summary ? 1 : 0);
+  const cards = totals.length + (summary ? 1 : 0) + (income ? 1 : 0);
   return (
     <SimpleGrid cols={{ base: 1, sm: Math.min(cards, 3) }}>
+      {income && <IncomeSummaryCard income={income} />}
       {summary && (
         <Card withBorder padding="md">
           <Text size="sm" c="dimmed">
@@ -245,14 +277,16 @@ function PositionsTable({
   groups,
   onEdit,
   onAdd,
+  onSell,
 }: {
   groups: PortfolioGroup[];
   onEdit: (position: PortfolioPosition) => void;
   onAdd: (group: PortfolioGroup) => void;
+  onSell: (group: PortfolioGroup) => void;
 }) {
   return (
     <Card withBorder padding={0}>
-      <Table.ScrollContainer minWidth={1250}>
+      <Table.ScrollContainer minWidth={1500}>
         <Table highlightOnHover verticalSpacing="sm">
           <Table.Thead>
             <Table.Tr>
@@ -281,14 +315,38 @@ function PositionsTable({
                 </Tooltip>
               </Table.Th>
               <Table.Th ta="right">Стоимость</Table.Th>
-              <Table.Th ta="right">Доход</Table.Th>
+              <Table.Th ta="right">
+                <Tooltip label="Доход от изменения цены непроданных облигаций">
+                  <span style={{ cursor: 'help' }}>Доход от цены</span>
+                </Tooltip>
+              </Table.Th>
               <Table.Th ta="right">Доход, %</Table.Th>
+              <Table.Th ta="right">
+                <Tooltip
+                  label="За всё время, с проданными частями: доход от цены + купоны + НКД − комиссии − НДФЛ. Ниже - в % к вложенному"
+                  multiline
+                  w={300}
+                >
+                  <span style={{ cursor: 'help' }}>Полный доход</span>
+                </Tooltip>
+              </Table.Th>
+              <Table.Th ta="right">
+                <Tooltip label="Годовая доходность с учётом дат вложений и выплат, до налога" multiline w={260}>
+                  <span style={{ cursor: 'help' }}>XIRR</span>
+                </Tooltip>
+              </Table.Th>
               <Table.Th />
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
             {groups.map((group) => (
-              <GroupRows key={group.ticker} group={group} onEdit={onEdit} onAdd={() => onAdd(group)} />
+              <GroupRows
+                key={group.ticker}
+                group={group}
+                onEdit={onEdit}
+                onAdd={() => onAdd(group)}
+                onSell={() => onSell(group)}
+              />
             ))}
           </Table.Tbody>
         </Table>
@@ -336,10 +394,12 @@ function GroupRows({
   group,
   onEdit,
   onAdd,
+  onSell,
 }: {
   group: PortfolioGroup;
   onEdit: (position: PortfolioPosition) => void;
   onAdd: () => void;
+  onSell: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const name = group.bondName ?? group.ticker;
@@ -403,9 +463,15 @@ function GroupRows({
           revenueInRub={group.revenueInRub}
           revenuePercent={group.revenuePercent}
         />
+        <IncomeCells income={group.income} />
         <Table.Td>
           <Group gap={ACTION_GAP} wrap="nowrap" justify="flex-end">
             {single ? <PositionActions position={single} onEdit={() => onEdit(single)} /> : <ActionSlots count={2} />}
+            <Tooltip label="Продать">
+              <ActionIcon variant="subtle" color="gray" aria-label={`Продать: ${name}`} onClick={onSell}>
+                <IconCash size={16} />
+              </ActionIcon>
+            </Tooltip>
             <Tooltip label="Ещё покупка этой облигации">
               <ActionIcon variant="subtle" color="gray" aria-label={`Добавить покупку: ${name}`} onClick={onAdd}>
                 <IconPlus size={16} />
@@ -427,7 +493,9 @@ function GroupRows({
               <BrokersCell brokers={position.broker ? [position.broker] : []} />
             </Table.Td>
             <Table.Td>{formatDate(position.buyDate)}</Table.Td>
-            <Table.Td ta="right">{formatNumber(position.quantity)}</Table.Td>
+            <Table.Td ta="right">
+              <PositionQuantity position={position} />
+            </Table.Td>
             <Table.Td ta="right">
               <Text size="sm">{formatPercent(position.buyPrice)}</Text>
               <PaidRubCaption position={position} />
@@ -443,15 +511,32 @@ function GroupRows({
               revenueInRub={position.revenueInRub}
               revenuePercent={position.revenuePercent}
             />
+            <Table.Td />
+            <Table.Td />
             <Table.Td>
               <Group gap={ACTION_GAP} wrap="nowrap" justify="flex-end">
                 <PositionActions position={position} onEdit={() => onEdit(position)} />
-                <ActionSlots count={1} />
+                <ActionSlots count={2} />
               </Group>
             </Table.Td>
           </Table.Tr>
         ))}
     </>
+  );
+}
+
+/** Количество покупки; часть продана - «3 из 10» */
+function PositionQuantity({ position }: { position: PortfolioPosition }) {
+  const remaining = position.remainingQuantity ?? position.quantity;
+  if (remaining === position.quantity) {
+    return <>{formatNumber(position.quantity)}</>;
+  }
+  return (
+    <Tooltip label={remaining === 0 ? 'Покупка продана целиком' : 'Часть покупки продана'}>
+      <Text size="sm" style={{ cursor: 'help' }}>
+        {formatNumber(remaining)} из {formatNumber(position.quantity)}
+      </Text>
+    </Tooltip>
   );
 }
 
@@ -537,6 +622,7 @@ function PositionActions({ position, onEdit }: { position: PortfolioPosition; on
         <Popover.Dropdown>
           <Stack gap="xs">
             <Text size="sm">Удалить покупку {label}?</Text>
+            {remove.isError && <ApiErrorText error={remove.error} />}
             <Group gap="xs" justify="flex-end">
               <Button size="xs" variant="default" onClick={() => setConfirming(false)}>
                 Отмена
@@ -576,6 +662,8 @@ function PositionForm({ position, preset, onDone }: { position?: PortfolioPositi
   const [buyDate, setBuyDate] = useState(position?.buyDate ?? today);
   const [broker, setBroker] = useState<string | null>(position?.broker ?? null);
   const [buyAmountRub, setBuyAmountRub] = useState<number | undefined>(position?.buyAmountRub ?? undefined);
+  const [aci, setAci] = useState<number | undefined>(position?.aci ?? undefined);
+  const [commission, setCommission] = useState<number | undefined>(position?.commission ?? undefined);
   const [submitted, setSubmitted] = useState(false);
   const foreign = currency != null && !isRubCurrency(currency);
 
@@ -588,6 +676,8 @@ function PositionForm({ position, preset, onDone }: { position?: PortfolioPositi
     buyPrice: buyPrice == null || buyPrice <= 0 || buyPrice > MAX_BUY_PRICE ? `Больше 0 и не выше ${MAX_BUY_PRICE} %` : undefined,
     buyDate: !isIsoDate(buyDate) ? 'Укажите дату' : buyDate > today ? 'Не позже сегодня' : undefined,
     buyAmountRub: foreign && buyAmountRub != null && buyAmountRub <= 0 ? 'Больше 0' : undefined,
+    aci: aci != null && aci < 0 ? 'Не меньше 0' : undefined,
+    commission: commission != null && commission < 0 ? 'Не меньше 0' : undefined,
   };
   const valid = Object.values(errors).every((error) => error == null);
   const mutation = position ? update : create;
@@ -621,6 +711,13 @@ function PositionForm({ position, preset, onDone }: { position?: PortfolioPositi
     const request: PortfolioPositionRequest = { quantity, buyPrice, buyDate, broker: broker ?? '' };
     if (foreign && buyAmountRub != null) {
       request.buyAmountRub = buyAmountRub;
+    }
+    // пусто - НКД по графику купонов, комиссия 0
+    if (aci != null) {
+      request.aci = aci;
+    }
+    if (commission != null) {
+      request.commission = commission;
     }
     if (position) {
       update.mutate({ id: position.id, ...request }, { onSuccess: onDone });
@@ -682,6 +779,28 @@ function PositionForm({ position, preset, onDone }: { position?: PortfolioPositi
           error={shown(errors.buyAmountRub)}
         />
       )}
+      <NumberField
+        label="НКД, уплаченный при покупке"
+        description="На всю покупку, в валюте облигации. Пусто - по графику купонов"
+        value={aci}
+        onChange={setAci}
+        min={0}
+        decimalScale={2}
+        decimalSeparator=","
+        thousandSeparator=" "
+        error={shown(errors.aci)}
+      />
+      <NumberField
+        label="Комиссия брокера"
+        description="В валюте облигации. Пусто - без комиссии"
+        value={commission}
+        onChange={setCommission}
+        min={0}
+        decimalScale={2}
+        decimalSeparator=","
+        thousandSeparator=" "
+        error={shown(errors.commission)}
+      />
       <BrokerSelect value={broker} onChange={setBroker} />
       <TextInput
         label="Дата покупки"

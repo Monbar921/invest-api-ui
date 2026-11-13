@@ -32,13 +32,17 @@ import {
 import {
   createCalendarLink,
   createPosition,
+  createSale,
   deleteCalendarLink,
   deletePosition,
+  deleteSale,
   fetchBrokers,
   fetchCalendarLink,
   fetchPortfolio,
   fetchPortfolioCalendar,
+  fetchTrades,
   updatePosition,
+  updateSale,
 } from './portfolio';
 import { createTelegramLink, fetchTelegramStatus, unlinkTelegram } from './telegram';
 import type {
@@ -48,6 +52,7 @@ import type {
   NewsSource,
   Page,
   PortfolioPositionRequest,
+  PortfolioSaleRequest,
   ProfitCalculationRequest,
 } from './types';
 
@@ -377,7 +382,8 @@ export function useAlertMutations() {
 
 export const portfolioKeys = {
   all: ['portfolio'] as const,
-  positions: () => [...portfolioKeys.all, 'positions'] as const,
+  positions: (taxRatePercent: number | null = null) => [...portfolioKeys.all, 'positions', taxRatePercent] as const,
+  trades: () => [...portfolioKeys.all, 'trades'] as const,
   brokers: () => [...portfolioKeys.all, 'brokers'] as const,
   // внутри portfolioKeys.all: изменение покупок перечитывает и календарь
   calendar: (to: string) => [...portfolioKeys.all, 'calendar', to] as const,
@@ -385,9 +391,41 @@ export const portfolioKeys = {
 };
 
 /** Портфель с текущими ценами; цены на бэке обновляются в течение дня - перечитываем при возврате на вкладку */
-export function usePortfolio() {
+export function usePortfolio(taxRatePercent: number | null = null) {
   const { authenticated } = useSession();
-  return useQuery({ queryKey: portfolioKeys.positions(), queryFn: fetchPortfolio, enabled: authenticated });
+  return useQuery({
+    queryKey: portfolioKeys.positions(taxRatePercent),
+    queryFn: () => fetchPortfolio(taxRatePercent),
+    enabled: authenticated,
+    // другая ставка - другой ключ: прежние цифры видны, пока считаются новые
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Сделки: покупки, продажи и погашения, новые первыми */
+export function usePortfolioTrades() {
+  const { authenticated } = useSession();
+  return useQuery({ queryKey: portfolioKeys.trades(), queryFn: fetchTrades, enabled: authenticated });
+}
+
+/** Добавление, изменение и удаление продажи; после - перечитываются портфель, сделки и календарь */
+export function useSaleMutations() {
+  const queryClient = useQueryClient();
+  const onSuccess = () => queryClient.invalidateQueries({ queryKey: portfolioKeys.all });
+  return {
+    create: useMutation({
+      mutationFn: (sale: PortfolioSaleRequest) => createSale(sale),
+      onSuccess: () => {
+        trackGoal('portfolio_sale_added');
+        return onSuccess();
+      },
+    }),
+    update: useMutation({
+      mutationFn: ({ id, ...sale }: PortfolioSaleRequest & { id: number }) => updateSale(id, sale),
+      onSuccess,
+    }),
+    remove: useMutation({ mutationFn: deleteSale, onSuccess }),
+  };
 }
 
 export function useBrokers() {

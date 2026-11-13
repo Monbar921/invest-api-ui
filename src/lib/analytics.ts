@@ -18,6 +18,8 @@ export type AnalyticsGoal =
   | 'profit_calculation'
   /** в портфель добавлена покупка */
   | 'portfolio_position_added'
+  /** в портфель добавлена продажа */
+  | 'portfolio_sale_added'
   /** создана личная ссылка на календарь выплат (.ics) */
   | 'portfolio_calendar_link_created'
   /** создано правило уведомлений */

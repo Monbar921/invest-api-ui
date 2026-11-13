@@ -374,7 +374,10 @@ export interface NotificationItem {
   lastError: string | null;
 }
 
-/** Позиция портфеля - одна покупка облигации с текущей оценкой. Суммы - в валюте номинала, на всё количество */
+/**
+ * Позиция портфеля - одна покупка облигации с текущей оценкой. Суммы - в валюте номинала, на непроданный остаток покупки
+ * (remainingQuantity): проданное по FIFO в них не входит
+ */
 export interface PortfolioPosition {
   id: number;
   ticker: string;
@@ -383,7 +386,10 @@ export interface PortfolioPosition {
   isin: string | null;
   /** Валюта номинала */
   currency: string | null;
+  /** Сколько куплено */
   quantity: number;
+  /** Сколько из покупки не продано и не погашено */
+  remainingQuantity: number;
   /** YYYY-MM-DD */
   buyDate: string;
   /** Имя брокера; null - не указан */
@@ -415,6 +421,10 @@ export interface PortfolioPosition {
   revenueInRub: number | null;
   /** Доходность к погашению, если купить сегодня по цене этой покупки (с сегодняшним НКД), % годовых */
   yieldToMaturity: number | null;
+  /** Уплаченный НКД на всю покупку, как ввёл пользователь; null - не вводил (считается по графику купонов) */
+  aci: number | null;
+  /** Комиссия брокера за покупку; null - не вводил */
+  commission: number | null;
   createdAt: string;
 }
 
@@ -440,7 +450,7 @@ export interface PortfolioGroup {
   bondName: string | null;
   isin: string | null;
   currency: string | null;
-  /** Сколько облигаций во всех покупках */
+  /** Сколько облигаций не продано во всех покупках */
   quantity: number;
   /** Разные брокеры покупок по имени */
   brokers: string[];
@@ -464,6 +474,8 @@ export interface PortfolioGroup {
   yieldToMaturity: number | null;
   /** Доходность к погашению по текущей цене, % годовых */
   currentYieldToMaturity: number | null;
+  /** Полный доход по облигации за всё время, с проданными частями; null - облигации нет в системе */
+  income: PortfolioIncome | null;
   /** Покупки по дате */
   positions: PortfolioPosition[];
 }
@@ -482,6 +494,110 @@ export interface Portfolio {
   totals: PortfolioTotal[];
   /** null - портфель пуст или у какой-то валюты нет курса */
   summary: PortfolioSummary | null;
+  /** Закрытые позиции: всё продано или погашено; последние закрытые первыми */
+  closed: PortfolioClosedPosition[];
+  /** Полный доход по валютам номинала - открытые и закрытые позиции */
+  incomeTotals: PortfolioIncome[];
+  /** Полный доход всего портфеля в рублях и XIRR портфеля; null - нечего считать */
+  income: PortfolioIncome | null;
+}
+
+/**
+ * Полный доход: доход от цены + купоны + НКД − комиссии − налог. Суммы - в currency, на всё количество.
+ * Доход от цены = продано и погашено + стоит сейчас + амортизация − куплено.
+ */
+export interface PortfolioIncome {
+  /** Валюта номинала; у дохода всего портфеля - rub */
+  currency: string;
+  buyAmount: number;
+  /** НКД, уплаченный при покупках */
+  buyAci: number;
+  /** Полученные купоны */
+  couponIncome: number;
+  /** Полученные частичные погашения номинала */
+  amortizationIncome: number;
+  /** Продано и погашено */
+  soldAmount: number;
+  saleAci: number;
+  /** Стоимость непроданного; null - цены нет */
+  currentAmount: number | null;
+  currentAci: number;
+  commission: number;
+  /** null - цены нет */
+  priceIncome: number | null;
+  /** НКД: полученный и текущий минус уплаченный */
+  aciIncome: number;
+  /** До налога */
+  profit: number | null;
+  /** Ставка НДФЛ из запроса; null - без налога */
+  taxRatePercent: number | null;
+  tax: number | null;
+  /** После налога */
+  fullIncome: number | null;
+  /** К куплено + НКД при покупках */
+  fullIncomePercent: number | null;
+  /** XIRR, % годовых, до налога; null - посчитать нельзя или итог неполный */
+  xirr: number | null;
+  /** Полученные купоны без размера в графике - в доход не вошли */
+  unknownCouponCount: number;
+  /** Итог неполный: настоящий доход может отличаться */
+  incomplete: boolean;
+}
+
+/** Закрытая позиция: облигации проданы или погашены целиком */
+export interface PortfolioClosedPosition {
+  ticker: string;
+  bondName: string | null;
+  isin: string | null;
+  currency: string | null;
+  /** Сколько было куплено */
+  quantity: number;
+  /** YYYY-MM-DD */
+  firstBuyDate: string;
+  /** Последняя продажа или погашение */
+  closeDate: string | null;
+  /** null - облигации нет в системе */
+  income: PortfolioIncome | null;
+}
+
+export type PortfolioTradeType = 'BUY' | 'SALE' | 'REDEMPTION';
+
+/** Сделка портфеля; суммы - в валюте номинала, на всё количество */
+export interface PortfolioTrade {
+  type: PortfolioTradeType;
+  /** id покупки или продажи; у погашения null */
+  id: number | null;
+  ticker: string;
+  bondName: string | null;
+  currency: string | null;
+  /** YYYY-MM-DD */
+  date: string;
+  quantity: number;
+  /** % от номинала; у погашения 100 */
+  price: number;
+  /** null - облигации нет */
+  amount: number | null;
+  /** НКД: введённый или по графику купонов; null - посчитать нельзя */
+  aci: number | null;
+  /** НКД посчитан по графику, а не введён */
+  aciCalculated: boolean;
+  commission: number | null;
+  broker: string | null;
+}
+
+/** Продажа из портфеля; при изменении тикер не используется */
+export interface PortfolioSaleRequest {
+  ticker?: string;
+  quantity: number;
+  /** % от номинала */
+  sellPrice: number;
+  /** YYYY-MM-DD; не задана - сегодня */
+  sellDate?: string;
+  /** Полученный НКД на всю продажу; не задан - по графику купонов */
+  aci?: number;
+  /** Комиссия брокера; не задана - 0 */
+  commission?: number;
+  broker?: string;
 }
 
 /** Покупка в портфель; при изменении тикер не используется */
@@ -496,6 +612,10 @@ export interface PortfolioPositionRequest {
   broker?: string;
   /** Только у валютной облигации: сколько рублей заплачено, без НКД и комиссии; не задано - по курсу ЦБ */
   buyAmountRub?: number;
+  /** Уплаченный НКД на всю покупку; не задан - по графику купонов */
+  aci?: number;
+  /** Комиссия брокера; не задана - 0 */
+  commission?: number;
 }
 
 /** Ссылка на покупку облигации у брокера-партнёра. Это реклама: показывается с пометкой, рекламодателем и erid */

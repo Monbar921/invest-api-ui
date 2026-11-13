@@ -5,7 +5,12 @@ import { renderRoute } from '../test/render';
 import { enableAnalytics, sentGoals } from '../test/analytics';
 import { PortfolioPage } from './PortfolioPage';
 
-const position = (overrides: Partial<PortfolioPosition>): PortfolioPosition => ({
+const position = (overrides: Partial<PortfolioPosition>): PortfolioPosition => {
+  const base = positionBase(overrides);
+  return { ...base, remainingQuantity: overrides.remainingQuantity ?? base.quantity };
+};
+
+const positionBase = (overrides: Partial<PortfolioPosition>): PortfolioPosition => ({
   id: 1,
   ticker: 'RU000A10EQ34',
   bondName: 'Авто Финанс Банк БО-001Р-18',
@@ -26,6 +31,9 @@ const position = (overrides: Partial<PortfolioPosition>): PortfolioPosition => (
   currentAmountInRub: 10050,
   revenueInRub: 200,
   yieldToMaturity: 19.4,
+  aci: null,
+  commission: null,
+  remainingQuantity: 10,
   createdAt: '2026-11-08T10:00:00Z',
   ...overrides,
 });
@@ -58,6 +66,7 @@ function group(positions: PortfolioPosition[], overrides: Partial<PortfolioGroup
     couponRate: 18.59,
     yieldToMaturity: first.yieldToMaturity,
     currentYieldToMaturity: 18.2,
+    income: null,
     positions,
     ...overrides,
   };
@@ -92,9 +101,12 @@ const portfolio: Portfolio = {
     },
   ],
   summary: null,
+  closed: [],
+  incomeTotals: [],
+  income: null,
 };
 
-const EMPTY: Portfolio = { groups: [], totals: [], summary: null };
+const EMPTY: Portfolio = { groups: [], totals: [], summary: null, closed: [], incomeTotals: [], income: null };
 
 /** ТМК: две покупки у разных брокеров - одна строка */
 const tmkFirst = position({
@@ -225,7 +237,7 @@ describe('PortfolioPage', () => {
   });
 
   it('без курса у какой-то валюты карточки «Всего» нет', async () => {
-    mockApi({ ...portfolio, summary: null });
+    mockApi({ ...portfolio, summary: null, closed: [], incomeTotals: [], income: null });
     renderPage();
 
     expect(await screen.findByText('Авто Финанс Банк БО-001Р-18')).toBeInTheDocument();
@@ -240,7 +252,7 @@ describe('PortfolioPage', () => {
   });
 
   it('покупки одной облигации - одной строкой, раскрываются по клику', async () => {
-    mockApi({ groups: [tmk], totals: [], summary: null });
+    mockApi({ groups: [tmk], totals: [], summary: null, closed: [], incomeTotals: [], income: null });
     renderPage();
 
     const row = (await screen.findByText('ТМК ЗО-2027')).closest('tr')!;
@@ -274,7 +286,7 @@ describe('PortfolioPage', () => {
   });
 
   it('«+» в строке облигации открывает покупку этой облигации', async () => {
-    const calls = mockApi({ groups: [tmk], totals: [], summary: null });
+    const calls = mockApi({ groups: [tmk], totals: [], summary: null, closed: [], incomeTotals: [], income: null });
     renderPage();
 
     await userEvent.click(await screen.findByRole('button', { name: 'Добавить покупку: ТМК ЗО-2027' }));
@@ -314,7 +326,7 @@ describe('PortfolioPage', () => {
   });
 
   it('у валютной покупки можно указать, сколько заплачено в рублях', async () => {
-    const calls = mockApi({ groups: [tmk], totals: [], summary: null });
+    const calls = mockApi({ groups: [tmk], totals: [], summary: null, closed: [], incomeTotals: [], income: null });
     renderPage();
 
     await expand('ТМК ЗО-2027');
@@ -328,7 +340,7 @@ describe('PortfolioPage', () => {
   });
 
   it('запятая и точка в дробной части не стирают набранное', async () => {
-    const calls = mockApi({ groups: [tmk], totals: [], summary: null });
+    const calls = mockApi({ groups: [tmk], totals: [], summary: null, closed: [], incomeTotals: [], income: null });
     renderPage();
 
     await expand('ТМК ЗО-2027');
@@ -399,6 +411,9 @@ describe('PortfolioPage', () => {
         },
       ],
       summary: null,
+      closed: [],
+      incomeTotals: [],
+      income: null,
     });
     renderPage();
 

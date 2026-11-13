@@ -1,5 +1,14 @@
 import { absoluteApiUrl, request } from './client';
-import type { Broker, CalendarLink, Portfolio, PortfolioCalendar, PortfolioPosition, PortfolioPositionRequest } from './types';
+import type {
+  Broker,
+  CalendarLink,
+  Portfolio,
+  PortfolioCalendar,
+  PortfolioPosition,
+  PortfolioPositionRequest,
+  PortfolioSaleRequest,
+  PortfolioTrade,
+} from './types';
 
 // gateway пропускает /api/portfolio/** в invest-api и добавляет пользователя из сессии
 const PORTFOLIO_PATH = '/api/portfolio';
@@ -9,8 +18,27 @@ export const MAX_POSITION_QUANTITY = 1_000_000;
 export const MAX_BUY_PRICE = 300;
 export const MAX_BROKER_LENGTH = 100;
 
-export function fetchPortfolio(): Promise<Portfolio> {
-  return request<Portfolio>(PORTFOLIO_PATH);
+/** Портфель; taxRatePercent - ставка НДФЛ для полного дохода, не задана - без налога */
+export function fetchPortfolio(taxRatePercent?: number | null): Promise<Portfolio> {
+  const query = taxRatePercent != null ? `?${new URLSearchParams({ taxRatePercent: String(taxRatePercent) })}` : '';
+  return request<Portfolio>(`${PORTFOLIO_PATH}${query}`);
+}
+
+/** Покупки, продажи и погашения, новые первыми */
+export function fetchTrades(): Promise<PortfolioTrade[]> {
+  return request<PortfolioTrade[]>(`${PORTFOLIO_PATH}/trades`);
+}
+
+export function createSale(sale: PortfolioSaleRequest): Promise<PortfolioTrade> {
+  return request<PortfolioTrade>(`${PORTFOLIO_PATH}/sales`, { method: 'POST', body: JSON.stringify(sale) });
+}
+
+export function updateSale(id: number, sale: PortfolioSaleRequest): Promise<PortfolioTrade> {
+  return request<PortfolioTrade>(`${PORTFOLIO_PATH}/sales/${id}`, { method: 'PUT', body: JSON.stringify(sale) });
+}
+
+export function deleteSale(id: number): Promise<void> {
+  return request<void>(`${PORTFOLIO_PATH}/sales/${id}`, { method: 'DELETE' });
 }
 
 export function createPosition(position: PortfolioPositionRequest): Promise<PortfolioPosition> {

@@ -81,7 +81,7 @@ const calendar: PortfolioCalendar = {
   unknownTickers: [],
 };
 
-const EMPTY_PORTFOLIO: Portfolio = { groups: [], totals: [], summary: null };
+const EMPTY_PORTFOLIO: Portfolio = { groups: [], totals: [], summary: null, closed: [], incomeTotals: [], income: null };
 const TOKEN = 'secret_TOKEN-1';
 
 const PREMIUM: Plan = {
