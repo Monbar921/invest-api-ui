@@ -1,15 +1,18 @@
-import { Badge, Card, Group, Loader, Progress, SimpleGrid, Stack, Table, Text, Title } from '@mantine/core';
+import { Badge, Button, Card, Group, Loader, Progress, SimpleGrid, Stack, Table, Text, Title } from '@mantine/core';
 import { IconCheck, IconMinus } from '@tabler/icons-react';
+import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { useAccountPlan } from '../api/queries';
 import { useSession } from '../api/session';
 import type { AccountPlan, Plan, PlanFeature, PlanLimit, PlanLimitUsage } from '../api/types';
 import { ErrorState } from '../components/ErrorState';
 import { LoginRequired } from '../components/LoginRequired';
+import { AutoRenewalInfo, PaymentResult, PaymentsHistory, PurchaseModal } from '../components/PlanPayments';
 import { formatDate } from '../lib/format';
-import { PLAN_FEATURE_LABELS, PLAN_LIMIT_LABELS } from '../lib/plans';
+import { PLAN_FEATURE_LABELS, PLAN_LIMIT_LABELS, planPrice } from '../lib/plans';
 import { usePageMeta } from '../lib/seo';
 
-/** «Тариф»: что входит в действующий, сколько использовано, сравнение тарифов */
+/** «Тариф»: что входит в действующий, сколько использовано, сравнение и покупка тарифов, платежи */
 export function PlanPage() {
   const { authenticated } = useSession();
   usePageMeta({ title: 'Тариф', noindex: true });
@@ -21,18 +24,33 @@ export function PlanPage() {
 
 function PlanContent() {
   const plan = useAccountPlan();
+  const [buying, setBuying] = useState<Plan | null>(null);
+  // Т-Касса возвращает сюда после оплаты: /plan?payment=<id>
+  const [searchParams, setSearchParams] = useSearchParams();
+  const paymentId = Number(searchParams.get('payment')) || null;
+  const closeResult = () =>
+    setSearchParams(
+      (params) => {
+        params.delete('payment');
+        return params;
+      },
+      { replace: true },
+    );
 
   return (
     <Stack gap="lg">
       <Title order={2}>Тариф</Title>
+      {paymentId != null && <PaymentResult id={paymentId} onClose={closeResult} />}
       {plan.isPending && <Loader size="sm" />}
       {plan.isError && <ErrorState error={plan.error} onRetry={() => void plan.refetch()} />}
       {plan.data && (
         <>
           <CurrentPlan account={plan.data} />
-          <PlansComparison account={plan.data} />
+          <PlansComparison account={plan.data} onBuy={setBuying} />
+          <PurchaseModal plan={buying} account={plan.data} onClose={() => setBuying(null)} />
         </>
       )}
+      <PaymentsHistory />
     </Stack>
   );
 }
@@ -56,6 +74,7 @@ function CurrentPlan({ account }: { account: AccountPlan }) {
             <LimitUsage key={usage.limit} usage={usage} />
           ))}
         </SimpleGrid>
+        <AutoRenewalInfo account={account} />
       </Stack>
     </Card>
   );
@@ -94,10 +113,12 @@ function LimitUsage({ usage }: { usage: PlanLimitUsage }) {
   );
 }
 
-function PlansComparison({ account }: { account: AccountPlan }) {
+function PlansComparison({ account, onBuy }: { account: AccountPlan; onBuy: (plan: Plan) => void }) {
   const limits = Object.keys(PLAN_LIMIT_LABELS) as PlanLimit[];
   const features = Object.keys(PLAN_FEATURE_LABELS) as PlanFeature[];
   const paidOffered = account.plans.some((plan) => plan.paid);
+  const paymentsEnabled = account.payments.enabled;
+  const sold = paymentsEnabled && account.plans.some((plan) => plan.purchasable);
 
   return (
     <Stack gap="sm">
@@ -113,6 +134,12 @@ function PlansComparison({ account }: { account: AccountPlan }) {
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
+            <Table.Tr>
+              <Table.Td>Цена</Table.Td>
+              {account.plans.map((plan) => (
+                <Table.Td key={plan.id}>{plan.paid ? (planPrice(plan) ?? 'по запросу') : 'бесплатно'}</Table.Td>
+              ))}
+            </Table.Tr>
             {limits.map((limit) => (
               <Table.Tr key={limit}>
                 <Table.Td>{PLAN_LIMIT_LABELS[limit]}</Table.Td>
@@ -135,12 +162,26 @@ function PlansComparison({ account }: { account: AccountPlan }) {
                 ))}
               </Table.Tr>
             ))}
+            {sold && (
+              <Table.Tr>
+                <Table.Td />
+                {account.plans.map((plan) => (
+                  <Table.Td key={plan.id}>
+                    {plan.purchasable && (
+                      <Button size="xs" onClick={() => onBuy(plan)}>
+                        {!account.defaultPlan && plan.id === account.plan.id ? 'Продлить' : 'Купить'}
+                      </Button>
+                    )}
+                  </Table.Td>
+                ))}
+              </Table.Tr>
+            )}
           </Table.Tbody>
         </Table>
       </Table.ScrollContainer>
-      {paidOffered && (
+      {paidOffered && !paymentsEnabled && (
         <Text size="sm" c="dimmed">
-          Оплата появится позже. Пока платный тариф подключается по запросу.
+          Оплата пока недоступна. Платный тариф подключается по запросу.
         </Text>
       )}
     </Stack>

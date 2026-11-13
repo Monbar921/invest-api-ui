@@ -17,7 +17,7 @@ import {
   searchBonds,
 } from './bonds';
 import { trackGoal } from '../lib/analytics';
-import { fetchAccountPlan } from './account';
+import { cancelAutoRenewal, createPayment, fetchAccountPlan, fetchPayment, fetchPayments } from './account';
 import { ApiError } from './client';
 import { useSession } from './session';
 import {
@@ -262,12 +262,61 @@ export function useUnlinkTelegram() {
 
 export const accountKeys = {
   plan: ['account', 'plan'] as const,
+  payments: ['account', 'payments'] as const,
+  payment: (id: number) => ['account', 'payments', id] as const,
 };
 
 /** Тариф пользователя; лимиты и их использование меняются вместе с правилами и покупками - их мутации его сбрасывают */
 export function useAccountPlan() {
   const { authenticated } = useSession();
   return useQuery({ queryKey: accountKeys.plan, queryFn: fetchAccountPlan, enabled: authenticated });
+}
+
+/** История платежей */
+export function usePayments(enabled: boolean) {
+  return useQuery({ queryKey: accountKeys.payments, queryFn: fetchPayments, enabled });
+}
+
+/** Сколько ждать оплату после возврата со страницы Т-Кассы, опрашивая статус */
+export const PAYMENT_POLL_INTERVAL_MS = 3000;
+const PAYMENT_POLL_ATTEMPTS = 40;
+
+/**
+ * Платёж, с оплаты которого вернулся пользователь (?payment=id). Пока ждёт оплаты - опрос раз в 3 секунды (бэк
+ * уточняет статус у провайдера, если webhook ещё не пришёл), около двух минут. Итог сбрасывает тариф и историю.
+ */
+export function usePaymentStatus(id: number | null) {
+  const queryClient = useQueryClient();
+  return useQuery({
+    queryKey: accountKeys.payment(id ?? 0),
+    queryFn: async () => {
+      const payment = await fetchPayment(id!);
+      if (payment.status !== 'PENDING') {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: accountKeys.plan }),
+          queryClient.invalidateQueries({ queryKey: accountKeys.payments, exact: true }),
+        ]);
+      }
+      return payment;
+    },
+    enabled: id != null,
+    refetchInterval: (query) =>
+      query.state.data?.status === 'PENDING' && query.state.dataUpdateCount < PAYMENT_POLL_ATTEMPTS
+        ? PAYMENT_POLL_INTERVAL_MS
+        : false,
+  });
+}
+
+/** Покупка тарифа и отмена автопродления */
+export function usePaymentMutations() {
+  const queryClient = useQueryClient();
+  return {
+    purchase: useMutation({ mutationFn: createPayment }),
+    cancelAutoRenewal: useMutation({
+      mutationFn: cancelAutoRenewal,
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: accountKeys.plan }),
+    }),
+  };
 }
 
 export const alertKeys = {

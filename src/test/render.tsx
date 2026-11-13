@@ -53,6 +53,10 @@ export const FREE_PLAN: AccountPlan = {
     paid: false,
     limits: { ALERTS: 50, PORTFOLIO_POSITIONS: 200 },
     features: ['CALENDAR_ICS'],
+    price: null,
+    period: null,
+    periodTitle: null,
+    purchasable: false,
   },
   defaultPlan: true,
   source: null,
@@ -62,6 +66,7 @@ export const FREE_PLAN: AccountPlan = {
     { limit: 'PORTFOLIO_POSITIONS', max: 200, used: 0 },
   ],
   plans: [],
+  payments: { enabled: false, offerUrl: null, privacyUrl: null, autoRenewal: null },
 };
 
 /**

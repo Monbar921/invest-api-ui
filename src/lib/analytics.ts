@@ -25,7 +25,11 @@ export type AnalyticsGoal =
   /** Telegram подключён - бот подтвердил привязку */
   | 'telegram_connected'
   /** «Войти / Зарегистрироваться» на лендинге */
-  | 'landing_login';
+  | 'landing_login'
+  /** переход к оплате тарифа (страница Т-Кассы) */
+  | 'plan_checkout_started'
+  /** оплата тарифа подтверждена после возврата с оплаты */
+  | 'plan_paid';
 
 /** Параметры цели: только перечислимые значения, без персональных данных */
 export type GoalParams = Record<string, string | string[]>;

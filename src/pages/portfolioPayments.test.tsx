@@ -91,6 +91,10 @@ const PREMIUM: Plan = {
   paid: true,
   limits: { ALERTS: 500, PORTFOLIO_POSITIONS: 2000 },
   features: ['CALENDAR_ICS'],
+  price: null,
+  period: null,
+  periodTitle: null,
+  purchasable: false,
 };
 
 /** Тариф без подписки на календарь */

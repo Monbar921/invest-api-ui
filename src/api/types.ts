@@ -600,6 +600,14 @@ export interface Plan {
   /** Сколько можно создать */
   limits: Partial<Record<PlanLimit, number>>;
   features: PlanFeature[];
+  /** Цена за срок period, рубли; null - не продаётся (только ручная выдача) */
+  price: number | null;
+  /** Сколько даёт одна оплата, ISO-8601: P1M */
+  period: string | null;
+  /** Срок по-русски: «1 месяц» */
+  periodTitle: string | null;
+  /** Можно купить */
+  purchasable: boolean;
 }
 
 /** Лимит действующего тарифа и сколько использовано; used может быть больше max - созданное раньше не удаляется */
@@ -614,11 +622,58 @@ export interface AccountPlan {
   plan: Plan;
   /** Подписки нет или она закончилась */
   defaultPlan: boolean;
-  /** MANUAL - выдан вручную; null - тариф по умолчанию */
+  /** MANUAL - выдан вручную, PAYMENT - оплачен; null - тариф по умолчанию */
   source: string | null;
   /** Последний день подписки включительно (YYYY-MM-DD); null - бессрочно или тариф по умолчанию */
   validUntil: string | null;
   limits: PlanLimitUsage[];
   /** Все тарифы - для сравнения */
   plans: Plan[];
+  /** Оплата: включена ли, оферта и политика, автопродление */
+  payments: PaymentsInfo;
+}
+
+/** Действующее автопродление */
+export interface AutoRenewal {
+  plan: string;
+  planTitle: string;
+  /** Маска карты: 430000******0777 */
+  cardPan: string | null;
+  /** День следующего списания (YYYY-MM-DD) */
+  nextChargeDate: string;
+  /** Сколько спишется, рубли; null - тариф больше не продаётся */
+  amount: number | null;
+}
+
+export interface PaymentsInfo {
+  /** Можно купить тариф */
+  enabled: boolean;
+  /** Оферта - ссылка у кнопки оплаты */
+  offerUrl: string | null;
+  /** Политика обработки персональных данных */
+  privacyUrl: string | null;
+  autoRenewal: AutoRenewal | null;
+}
+
+export type PaymentStatus = 'PENDING' | 'SUCCEEDED' | 'FAILED' | 'REFUNDED';
+
+/** Платёж за тариф */
+export interface Payment {
+  id: number;
+  plan: string;
+  planTitle: string;
+  period: string;
+  periodTitle: string;
+  /** Рубли */
+  amount: number;
+  /** PURCHASE - покупка, RENEWAL - автопродление */
+  kind: 'PURCHASE' | 'RENEWAL';
+  status: PaymentStatus;
+  cardPan: string | null;
+  /** Почему не прошёл */
+  errorMessage: string | null;
+  /** Страница оплаты провайдера: только пока покупка ждёт оплаты */
+  confirmationUrl: string | null;
+  createdAt: string;
+  paidAt: string | null;
 }
