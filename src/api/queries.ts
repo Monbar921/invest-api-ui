@@ -17,6 +17,17 @@ import {
   searchBonds,
 } from './bonds';
 import { trackGoal } from '../lib/analytics';
+import {
+  applyImport,
+  connectBroker,
+  disconnectBroker,
+  fetchBrokerAccounts,
+  fetchBrokerConnection,
+  fetchImport,
+  fetchImports,
+  previewFileImport,
+  previewTinvestImport,
+} from './imports';
 import { cancelAutoRenewal, createPayment, fetchAccountPlan, fetchPayment, fetchPayments } from './account';
 import { ApiError } from './client';
 import { useSession } from './session';
@@ -49,6 +60,7 @@ import type {
   BondParameters,
   BondScope,
   CandleInterval,
+  ImportSource,
   NewsSource,
   Page,
   PortfolioPositionRequest,
@@ -491,5 +503,63 @@ export function useCalendarLinkMutations() {
       },
     }),
     remove: useMutation({ mutationFn: deleteCalendarLink, onSuccess }),
+  };
+}
+
+export const importKeys = {
+  all: ['imports'] as const,
+  connection: () => [...importKeys.all, 'connection'] as const,
+  accounts: () => [...importKeys.all, 'accounts'] as const,
+  list: () => [...importKeys.all, 'list'] as const,
+};
+
+/** Подключён ли токен T-Invest; T-Invest при этом не запрашивается */
+export function useBrokerConnection() {
+  const { authenticated } = useSession();
+  return useQuery({ queryKey: importKeys.connection(), queryFn: fetchBrokerConnection, enabled: authenticated });
+}
+
+/** Счета подключённого токена (запрос в T-Invest) */
+export function useBrokerAccounts(enabled: boolean) {
+  return useQuery({ queryKey: importKeys.accounts(), queryFn: fetchBrokerAccounts, enabled, retry: false });
+}
+
+/** Последние импорты */
+export function useImports() {
+  const { authenticated } = useSession();
+  return useQuery({ queryKey: importKeys.list(), queryFn: fetchImports, enabled: authenticated });
+}
+
+/**
+ * Импорт: токен, предпросмотр (по токену или из файла), подтверждение. После подтверждения перечитываются портфель,
+ * тариф (покупки считаются в лимите) и список импортов
+ */
+export function useImportMutations() {
+  const queryClient = useQueryClient();
+  const refreshConnection = () => queryClient.invalidateQueries({ queryKey: importKeys.all });
+  return {
+    connect: useMutation({ mutationFn: connectBroker, onSuccess: refreshConnection }),
+    disconnect: useMutation({ mutationFn: disconnectBroker, onSuccess: refreshConnection }),
+    previewTinvest: useMutation({
+      mutationFn: ({ accountIds, from }: { accountIds: string[]; from: string | null }) => previewTinvestImport(accountIds, from),
+      onSuccess: refreshConnection,
+    }),
+    previewFile: useMutation({
+      mutationFn: ({ format, file }: { format: Exclude<ImportSource, 'TINVEST_API'>; file: File }) =>
+        previewFileImport(format, file),
+      onSuccess: refreshConnection,
+    }),
+    open: useMutation({ mutationFn: fetchImport }),
+    apply: useMutation({
+      mutationFn: ({ id, itemIds }: { id: number; itemIds: number[] }) => applyImport(id, itemIds),
+      onSuccess: () => {
+        trackGoal('portfolio_import_applied');
+        return Promise.all([
+          queryClient.invalidateQueries({ queryKey: portfolioKeys.all }),
+          queryClient.invalidateQueries({ queryKey: accountKeys.plan }),
+          refreshConnection(),
+        ]);
+      },
+    }),
   };
 }

@@ -709,7 +709,7 @@ export interface CalendarLink {
 export type PlanLimit = 'ALERTS' | 'PORTFOLIO_POSITIONS';
 
 /** Фича, которую тариф включает или нет */
-export type PlanFeature = 'CALENDAR_ICS';
+export type PlanFeature = 'CALENDAR_ICS' | 'BROKER_IMPORT';
 
 /** Тариф из настройки бэка */
 export interface Plan {
@@ -796,4 +796,82 @@ export interface Payment {
   confirmationUrl: string | null;
   createdAt: string;
   paidAt: string | null;
+}
+
+/** Откуда сделки импорта: токен T-Invest, свой шаблон CSV, HTML-отчёт Сбербанка */
+export type ImportSource = 'TINVEST_API' | 'CSV' | 'SBER_HTML';
+
+/**
+ * Сделка импорта. Выбрать можно NEW (выбрана по умолчанию), POSSIBLE_DUPLICATE и NEEDS_REVIEW; после подтверждения -
+ * CREATED, FAILED (причина в message) или SKIPPED
+ */
+export type ImportItemStatus =
+  'NEW' | 'POSSIBLE_DUPLICATE' | 'NEEDS_REVIEW' | 'DUPLICATE' | 'UNKNOWN_BOND' | 'INVALID' | 'CREATED' | 'FAILED' | 'SKIPPED';
+
+export interface ImportItem {
+  id: number;
+  lineNo: number;
+  /** null - строку не разобрать */
+  kind: 'BUY' | 'SELL' | null;
+  date: string | null;
+  ticker: string | null;
+  isin: string | null;
+  figi: string | null;
+  name: string | null;
+  quantity: number | null;
+  /** % номинала */
+  price: number | null;
+  aci: number | null;
+  commission: number | null;
+  amountRub: number | null;
+  broker: string | null;
+  status: ImportItemStatus;
+  message: string | null;
+  selectable: boolean;
+  tradeId: number | null;
+}
+
+export interface ImportUnknownBond {
+  isin: string | null;
+  figi: string | null;
+  ticker: string | null;
+  name: string | null;
+  trades: number;
+}
+
+/** Импорт: предпросмотр (PREVIEW) или отчёт (APPLIED) */
+export interface PortfolioImport {
+  id: number;
+  source: ImportSource;
+  fileName: string | null;
+  status: 'PREVIEW' | 'APPLYING' | 'APPLIED';
+  createdAt: string;
+  appliedAt: string | null;
+  /** Операции источника, которые не сделки с облигациями */
+  skippedOperations: number;
+  warnings: string[];
+  counts: Partial<Record<ImportItemStatus, number>>;
+  /** В списке импортов - null */
+  items: ImportItem[] | null;
+  unknownBonds: ImportUnknownBond[];
+}
+
+export interface BrokerAccount {
+  id: string;
+  name: string;
+  type: string;
+  openedDate: string | null;
+  closed: boolean;
+}
+
+/** Подключение T-Invest для импорта: сам токен не отдаётся */
+export interface BrokerConnection {
+  /** Импорт по токену включён на сервере */
+  enabled: boolean;
+  connected: boolean;
+  /** Последние 4 символа токена */
+  tokenHint: string | null;
+  connectedAt: string | null;
+  lastImportAt: string | null;
+  accounts: BrokerAccount[] | null;
 }

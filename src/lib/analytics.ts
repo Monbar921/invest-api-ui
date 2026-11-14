@@ -20,6 +20,8 @@ export type AnalyticsGoal =
   | 'portfolio_position_added'
   /** в портфель добавлена продажа */
   | 'portfolio_sale_added'
+  /** подтверждён импорт сделок от брокера */
+  | 'portfolio_import_applied'
   /** создана личная ссылка на календарь выплат (.ics) */
   | 'portfolio_calendar_link_created'
   /** создано правило уведомлений */

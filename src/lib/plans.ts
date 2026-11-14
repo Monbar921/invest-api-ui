@@ -10,6 +10,7 @@ export const PLAN_LIMIT_LABELS: Record<PlanLimit, string> = {
 /** Подписи фич тарифа */
 export const PLAN_FEATURE_LABELS: Record<PlanFeature, string> = {
   CALENDAR_ICS: 'Подписка на календарь выплат (.ics)',
+  BROKER_IMPORT: 'Импорт сделок от брокера',
 };
 
 /** Цена тарифа: целые рубли без копеек - «299 ₽», иначе «299,50 ₽» */

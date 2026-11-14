@@ -23,6 +23,7 @@ import {
   IconCash,
   IconChevronDown,
   IconChevronRight,
+  IconFileImport,
   IconListDetails,
   IconPencil,
   IconPlus,
@@ -50,6 +51,7 @@ import { ErrorState } from '../components/ErrorState';
 import { LoginRequired } from '../components/LoginRequired';
 import { NumberField } from '../components/NumberField';
 import { ClosedPositions, IncomeCells, IncomeSummaryCard, TaxRateControl } from '../components/PortfolioIncome';
+import { PortfolioImport } from '../components/PortfolioImport';
 import { PortfolioPayments } from '../components/PortfolioPayments';
 import { PortfolioTrades } from '../components/PortfolioTrades';
 import { SaleForm, type SaleBond } from '../components/SaleForm';
@@ -86,7 +88,8 @@ export function PortfolioPage() {
 const POSITIONS_TAB = 'positions';
 const TRADES_TAB = 'trades';
 const PAYMENTS_TAB = 'payments';
-const OTHER_TABS = [TRADES_TAB, PAYMENTS_TAB];
+const IMPORT_TAB = 'import';
+const OTHER_TABS = [TRADES_TAB, PAYMENTS_TAB, IMPORT_TAB];
 
 function Portfolio() {
   // ставка НДФЛ полного дохода - как в калькуляторе, по умолчанию 13 %
@@ -128,13 +131,22 @@ function Portfolio() {
           <Tabs.Tab value={PAYMENTS_TAB} leftSection={<IconCalendarDollar size={16} />}>
             Выплаты
           </Tabs.Tab>
+          <Tabs.Tab value={IMPORT_TAB} leftSection={<IconFileImport size={16} />}>
+            Импорт
+          </Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value={POSITIONS_TAB}>
           <Stack gap="lg">
             {portfolio.isPending && <Loader size="sm" />}
             {portfolio.isError && <ErrorState error={portfolio.error} onRetry={() => void portfolio.refetch()} />}
             {portfolio.data && groups.length === 0 && closed.length === 0 && (
-              <Text c="dimmed">В портфеле пока ничего нет. Добавьте покупку: облигацию, количество, цену и дату.</Text>
+              <Text c="dimmed">
+                В портфеле пока ничего нет. Добавьте покупку: облигацию, количество, цену и дату - или{' '}
+                <Anchor component={Link} to="/portfolio?tab=import">
+                  импортируйте сделки от брокера
+                </Anchor>
+                .
+              </Text>
             )}
             {portfolio.data && (groups.length > 0 || closed.length > 0) && (
               <>
@@ -190,6 +202,9 @@ function Portfolio() {
         </Tabs.Panel>
         <Tabs.Panel value={PAYMENTS_TAB}>
           <PortfolioPayments />
+        </Tabs.Panel>
+        <Tabs.Panel value={IMPORT_TAB}>
+          <PortfolioImport />
         </Tabs.Panel>
       </Tabs>
 

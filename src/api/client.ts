@@ -59,7 +59,13 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
     response = await fetch(`${API_URL}${path}`, {
       ...init,
       credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...csrfHeader(init?.method), ...init?.headers },
+      headers: {
+        // FormData (файл отчёта): Content-Type с границей частей ставит браузер
+        ...(init?.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
+        Accept: 'application/json',
+        ...csrfHeader(init?.method),
+        ...init?.headers,
+      },
     });
   } catch {
     throw new ApiError(0, `Сервер недоступен: ${API_URL || window.location.origin}`);
