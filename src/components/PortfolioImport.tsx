@@ -19,22 +19,60 @@ import {
   Text,
   TextInput,
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { IconAlertTriangle, IconFileUpload, IconPlugConnected, IconUpload } from '@tabler/icons-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link } from 'react-router';
-import { useAccountPlan, useBrokerAccounts, useBrokerConnection, useImportMutations, useImports } from '../api/queries';
-import type { ImportItem, ImportItemStatus, ImportSource, PortfolioImport as Import } from '../api/types';
+import { Link, useSearchParams } from 'react-router';
+import {
+  importKeys,
+  useAccountPlan,
+  useBrokerAccounts,
+  useBrokerConnection,
+  useBrokers,
+  useImport,
+  useImportMutations,
+  useImports,
+} from '../api/queries';
+import type { Broker, ImportItem, ImportItemStatus, ImportSource, PortfolioImport as Import } from '../api/types';
 import { formatDate, formatDateTime, formatNumber, formatPricePercent } from '../lib/format';
+import { money } from '../lib/money';
 import { ApiErrorText } from './ApiErrorText';
 import { ErrorState } from './ErrorState';
+import { BrokerSelect } from './BrokerSelect';
 import { PlanFeatureHint } from './PlanFeatureHint';
 
 type FileFormat = Exclude<ImportSource, 'TINVEST_API'>;
+
+/** Брокер у сделок импорта по умолчанию - как его назовёт бэк; у своего CSV - из столбца «Брокер» */
+const DEFAULT_BROKERS: Record<ImportSource, string | null> = {
+  TINVEST_API: 'Т-Инвестиции',
+  CSV: null,
+  SBER_HTML: 'Сбербанк',
+  ALFA_XLSX: 'Альфа-Банк',
+};
+
+const FORMAT_HINTS: Record<FileFormat, string> = {
+  CSV:
+    'Первая строка - заголовки, разделитель «;» или «,». Обязательны: Дата, Операция (покупка / продажа), ISIN или ' +
+    'Тикер, Количество, Цена (в % номинала). Необязательны: НКД, Комиссия (в валюте номинала), Номер сделки, Брокер.',
+  SBER_HTML: 'В СберИнвесторе: «Ещё» → «Брокерские отчёты», формат HTML. Берём таблицу сделок купли/продажи ценных бумаг.',
+  ALFA_XLSX:
+    'В Альфа-Инвестициях: «Документы» → «Брокерский отчёт», формат Excel. Берём листы «Завершенные сделки» и ' +
+    '«Незавершенные сделки»; акции и фонды из отчёта покажем как «нет в системе».',
+};
+
+const FORMAT_ACCEPT: Record<FileFormat, string> = {
+  CSV: '.csv,.txt',
+  SBER_HTML: '.html,.htm',
+  ALFA_XLSX: '.xlsx',
+};
 
 const SOURCE_LABELS: Record<ImportSource, string> = {
   TINVEST_API: 'Т-Инвестиции по токену',
   CSV: 'Файл CSV',
   SBER_HTML: 'Отчёт Сбербанка',
+  ALFA_XLSX: 'Отчёт Альфа-Банка',
 };
 
 const STATUS_LABELS: Record<ImportItemStatus, { label: string; color: string }> = {
@@ -51,6 +89,28 @@ const STATUS_LABELS: Record<ImportItemStatus, { label: string; color: string }> 
 
 const STATUS_ORDER = Object.keys(STATUS_LABELS) as ImportItemStatus[];
 
+/** Параметр адреса с открытым импортом: шаг мастера переживает перерисовку страницы и обновление */
+const IMPORT_PARAM = 'import';
+
+/** Имя брокера без регистра, пробелов и знаков: «Альфа-Банк» и «АльфаБанк» - один брокер */
+const brokerKey = (name: string) =>
+  name
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/[^\p{L}\p{N}]/gu, '');
+
+/**
+ * Брокер по умолчанию: уже заведённый у пользователя с тем же именем (без учёта знаков) - чтобы импорт не завёл
+ * второго брокера рядом с тем, что вводили вручную; иначе - брокер источника
+ */
+function defaultBroker(source: ImportSource, brokers: Broker[] | undefined): string | null {
+  const name = DEFAULT_BROKERS[source];
+  if (name == null) {
+    return null;
+  }
+  return brokers?.find((broker) => brokerKey(broker.name) === brokerKey(name))?.name ?? name;
+}
+
 /**
  * Вкладка «Импорт»: мастер из трёх шагов - источник (токен T-Invest только на чтение или файл отчёта), предпросмотр
  * сделок с выбором и отчёт. Повтор уже импортированной сделки бэк пропускает; облигации, которых нет в системе,
@@ -61,8 +121,30 @@ export function PortfolioImport() {
   // тариф не загрузился - форма как обычно, закрытую фичу всё равно не даст бэк (402)
   const closed = accountPlan != null && !accountPlan.plan.features.includes('BROKER_IMPORT');
   const upgrade = accountPlan?.plans.find((plan) => plan.paid && plan.features.includes('BROKER_IMPORT'));
-  const [current, setCurrent] = useState<Import | null>(null);
-  const { open } = useImportMutations();
+  const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openedId = Number(searchParams.get(IMPORT_PARAM)) || null;
+  const opened = useImport(openedId);
+  const current = openedId == null ? null : (opened.data ?? null);
+  const mobile = useMediaQuery('(max-width: 36em)');
+  const show = (value: Import | number | null) => {
+    if (value != null && typeof value === 'object') {
+      queryClient.setQueryData(importKeys.detail(value.id), value);
+    }
+    const id = value == null ? null : typeof value === 'number' ? value : value.id;
+    setSearchParams(
+      (previous) => {
+        const next = new URLSearchParams(previous);
+        if (id == null) {
+          next.delete(IMPORT_PARAM);
+        } else {
+          next.set(IMPORT_PARAM, String(id));
+        }
+        return next;
+      },
+      { replace: true },
+    );
+  };
   const step = current == null ? 0 : current.status === 'PREVIEW' ? 1 : 2;
 
   return (
@@ -72,25 +154,33 @@ export function PortfolioImport() {
         Повторный импорт того же отчёта ничего не задвоит.
       </Text>
       {closed && <PlanFeatureHint planTitle={upgrade?.title} />}
-      <Stepper active={step} size="sm" allowNextStepsSelect={false}>
-        <Stepper.Step label="Источник" description="Токен или файл">
-          <SourceStep disabled={closed} onPreview={setCurrent} />
+      {/* на телефоне - без описаний шагов: три шага с описаниями не помещаются в строку */}
+      <Stepper active={step} size={mobile ? 'xs' : 'sm'} allowNextStepsSelect={false}>
+        <Stepper.Step label="Источник" description={mobile ? undefined : 'Токен или файл'}>
+          {openedId != null && opened.isPending ? (
+            <Loader size="sm" mt="md" />
+          ) : (
+            <SourceStep disabled={closed} onPreview={show} />
+          )}
+          {openedId != null && opened.isError && <ApiErrorText error={opened.error} />}
         </Stepper.Step>
-        <Stepper.Step label="Предпросмотр" description="Что добавить">
-          {current && <PreviewStep current={current} onApplied={setCurrent} onCancel={() => setCurrent(null)} />}
+        <Stepper.Step label="Предпросмотр" description={mobile ? undefined : 'Что добавить'}>
+          {current && <PreviewStep key={current.id} current={current} onApplied={show} onCancel={() => show(null)} />}
         </Stepper.Step>
-        <Stepper.Step label="Отчёт" description="Что получилось">
-          {current && <ReportStep current={current} onNew={() => setCurrent(null)} />}
+        <Stepper.Step label="Отчёт" description={mobile ? undefined : 'Что получилось'}>
+          {current && <ReportStep current={current} onNew={() => show(null)} />}
         </Stepper.Step>
       </Stepper>
-      {open.isError && <ApiErrorText error={open.error} />}
-      <ImportHistory onOpen={(id) => open.mutate(id, { onSuccess: setCurrent })} />
+      <ImportHistory onOpen={(id) => show(id)} />
     </Stack>
   );
 }
 
 function SourceStep({ disabled, onPreview }: { disabled: boolean; onPreview: (value: Import) => void }) {
-  const [source, setSource] = useState<'token' | 'file'>('token');
+  const connection = useBrokerConnection();
+  const [chosen, setSource] = useState<'token' | 'file' | null>(null);
+  // импорт по токену выключен - сразу файл
+  const source = chosen ?? (connection.data?.enabled === false ? 'file' : 'token');
   return (
     <Stack gap="md" mt="md">
       <SegmentedControl
@@ -117,6 +207,10 @@ function TokenSource({ disabled, onPreview }: { disabled: boolean; onPreview: (v
   const [token, setToken] = useState('');
   const [accountIds, setAccountIds] = useState<string[]>([]);
   const [from, setFrom] = useState('');
+  const brokers = useBrokers();
+  // undefined - не меняли: брокер по умолчанию (уже заведённый с тем же именем или брокер источника)
+  const [chosenBroker, setBroker] = useState<string | null | undefined>(undefined);
+  const broker = chosenBroker === undefined ? defaultBroker('TINVEST_API', brokers.data) : chosenBroker;
   const connected = connection.data?.connected === true;
   const accounts = useBrokerAccounts(connected && !disabled);
 
@@ -187,12 +281,13 @@ function TokenSource({ disabled, onPreview }: { disabled: boolean; onPreview: (v
         disabled={disabled}
         maw={220}
       />
+      <BrokerSelect value={broker} onChange={setBroker} />
       <Group>
         <Button
           leftSection={<IconUpload size={16} />}
           loading={previewTinvest.isPending}
           disabled={disabled}
-          onClick={() => previewTinvest.mutate({ accountIds, from: from || null }, { onSuccess: onPreview })}
+          onClick={() => previewTinvest.mutate({ accountIds, from: from || null, broker }, { onSuccess: onPreview })}
         >
           Загрузить сделки
         </Button>
@@ -210,6 +305,9 @@ function FileSource({ disabled, onPreview }: { disabled: boolean; onPreview: (va
   const { previewFile } = useImportMutations();
   const [format, setFormat] = useState<FileFormat>('CSV');
   const [file, setFile] = useState<File | null>(null);
+  const brokers = useBrokers();
+  const [chosenBroker, setBroker] = useState<string | null | undefined>(undefined);
+  const broker = chosenBroker === undefined ? defaultBroker(format, brokers.data) : chosenBroker;
   return (
     <Stack gap="sm" maw={560}>
       <Select
@@ -217,38 +315,39 @@ function FileSource({ disabled, onPreview }: { disabled: boolean; onPreview: (va
         data={[
           { value: 'CSV', label: 'CSV - свой шаблон (любой брокер)' },
           { value: 'SBER_HTML', label: 'Брокерский отчёт Сбербанка (HTML)' },
+          { value: 'ALFA_XLSX', label: 'Брокерский отчёт Альфа-Банка (Excel)' },
         ]}
         value={format}
-        onChange={(value) => value && setFormat(value as FileFormat)}
+        onChange={(value) => {
+          if (value) {
+            setFormat(value as FileFormat);
+            setBroker(undefined);
+            setFile(null);
+          }
+        }}
         allowDeselect={false}
         disabled={disabled}
       />
-      {format === 'CSV' ? (
-        <Text size="xs" c="dimmed">
-          Первая строка - заголовки, разделитель «;» или «,». Обязательны: Дата, Операция (покупка / продажа), ISIN или Тикер,
-          Количество, Цена (в % номинала). Необязательны: НКД, Комиссия (в валюте номинала), Номер сделки, Брокер.
-        </Text>
-      ) : (
-        <Text size="xs" c="dimmed">
-          В СберИнвесторе: «Ещё» → «Брокерские отчёты», формат HTML. Берём таблицу сделок купли/продажи ценных бумаг.
-        </Text>
-      )}
+      <Text size="xs" c="dimmed">
+        {FORMAT_HINTS[format]}
+      </Text>
       <FileInput
         label="Файл"
         placeholder="Выберите файл"
-        accept={format === 'CSV' ? '.csv,.txt' : '.html,.htm'}
+        accept={FORMAT_ACCEPT[format]}
         value={file}
         onChange={setFile}
         leftSection={<IconFileUpload size={16} />}
         clearable
         disabled={disabled}
       />
+      <BrokerSelect value={broker} onChange={setBroker} />
       <Group>
         <Button
           leftSection={<IconUpload size={16} />}
           loading={previewFile.isPending}
           disabled={disabled || file == null}
-          onClick={() => file && previewFile.mutate({ format, file }, { onSuccess: onPreview })}
+          onClick={() => file && previewFile.mutate({ format, file, broker }, { onSuccess: onPreview })}
         >
           Загрузить
         </Button>
@@ -270,9 +369,11 @@ function PreviewStep({
   const items = current.items ?? [];
   const { apply } = useImportMutations();
   // по умолчанию выбраны только новые сделки: похожие на введённые вручную и остатки позиций - на усмотрение
-  const [selected, setSelected] = useState<Set<number>>(
+  const [chosen, setSelected] = useState<Set<number>>(
     () => new Set(items.filter((item) => item.status === 'NEW').map((item) => item.id)),
   );
+  // строка могла перестать быть выбираемой (предпросмотр перечитан: сделку с тех пор импортировали)
+  const selected = new Set(items.filter((item) => item.selectable && chosen.has(item.id)).map((item) => item.id));
   const toggle = (id: number) =>
     setSelected((previous) => {
       const next = new Set(previous);
@@ -398,7 +499,7 @@ function ItemsTable({
                 {selected && (
                   <Table.Td>
                     <Checkbox
-                      aria-label={`Выбрать строку ${item.lineNo}`}
+                      aria-label={`Выбрать: ${itemTitle(item)}, ${formatDate(item.date)}`}
                       checked={selected.has(item.id)}
                       disabled={!item.selectable}
                       onChange={() => onToggle?.(item.id)}
@@ -406,22 +507,24 @@ function ItemsTable({
                   </Table.Td>
                 )}
                 <Table.Td>{formatDate(item.date)}</Table.Td>
-                <Table.Td>{item.kind === 'BUY' ? 'Покупка' : item.kind === 'SELL' ? 'Продажа' : '-'}</Table.Td>
+                <Table.Td>{item.kind === 'BUY' ? 'Покупка' : item.kind === 'SELL' ? 'Продажа' : '—'}</Table.Td>
                 <Table.Td>
-                  <Text size="sm">{item.name ?? item.ticker ?? item.isin ?? item.figi ?? `Строка ${item.lineNo}`}</Text>
+                  <Text size="sm">{itemTitle(item)}</Text>
                   <Text size="xs" c="dimmed">
-                    {[item.ticker, item.isin].filter(Boolean).join(' · ')}
+                    {/* у ОФЗ тикер и ISIN часто совпадают - не повторяем */}
+                    {[...new Set([item.ticker, item.isin].filter(Boolean))].join(' · ')}
                   </Text>
                 </Table.Td>
-                <Table.Td ta="right">{item.quantity != null ? formatNumber(item.quantity) : '-'}</Table.Td>
+                <Table.Td ta="right">{formatNumber(item.quantity)}</Table.Td>
                 <Table.Td ta="right">{formatPricePercent(item.price)}</Table.Td>
-                <Table.Td ta="right">{item.aci != null ? formatNumber(item.aci) : '-'}</Table.Td>
-                <Table.Td ta="right">{item.commission != null ? formatNumber(item.commission) : '-'}</Table.Td>
+                <Table.Td ta="right">{money(item.aci, item.currency)}</Table.Td>
+                <Table.Td ta="right">{money(item.commission, item.currency)}</Table.Td>
                 <Table.Td>
                   <Badge color={STATUS_LABELS[item.status].color} variant="light">
                     {STATUS_LABELS[item.status].label}
                   </Badge>
-                  {item.message && (
+                  {/* сообщение, повторяющее значок («Уже импортирована»), не показываем */}
+                  {item.message && item.message.toLowerCase() !== STATUS_LABELS[item.status].label.toLowerCase() && (
                     <Text size="xs" c="dimmed" maw={320}>
                       {item.message}
                     </Text>
@@ -436,6 +539,10 @@ function ItemsTable({
   );
 }
 
+function itemTitle(item: ImportItem): string {
+  return item.name ?? item.ticker ?? item.isin ?? item.figi ?? `Строка ${item.lineNo}`;
+}
+
 /** Последние импорты: предпросмотр можно открыть и подтвердить позже, отчёт - посмотреть */
 function ImportHistory({ onOpen }: { onOpen: (id: number) => void }) {
   const imports = useImports();
@@ -446,37 +553,35 @@ function ImportHistory({ onOpen }: { onOpen: (id: number) => void }) {
     <Stack gap="xs">
       <Text fw={500}>Последние импорты</Text>
       <Card withBorder padding={0}>
-        <Table.ScrollContainer minWidth={600}>
-          <Table verticalSpacing="xs">
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Когда</Table.Th>
-                <Table.Th>Источник</Table.Th>
-                <Table.Th>Состояние</Table.Th>
-                <Table.Th ta="right">Создано</Table.Th>
-                <Table.Th />
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {imports.data.map((item) => (
-                <Table.Tr key={item.id}>
-                  <Table.Td>{formatDateTime(item.createdAt)}</Table.Td>
-                  <Table.Td>
-                    {SOURCE_LABELS[item.source]}
-                    {item.fileName ? `: ${item.fileName}` : ''}
-                  </Table.Td>
-                  <Table.Td>{item.status === 'PREVIEW' ? 'Ждёт подтверждения' : 'Подтверждён'}</Table.Td>
-                  <Table.Td ta="right">{formatNumber(item.counts.CREATED ?? 0)}</Table.Td>
-                  <Table.Td ta="right">
-                    <Button size="compact-sm" variant="subtle" onClick={() => onOpen(item.id)}>
-                      Открыть
-                    </Button>
-                  </Table.Td>
-                </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
-        </Table.ScrollContainer>
+        <Stack gap={0}>
+          {imports.data.map((item, index) => (
+            <Group
+              key={item.id}
+              justify="space-between"
+              wrap="nowrap"
+              gap="sm"
+              px="md"
+              py="xs"
+              style={index > 0 ? { borderTop: '1px solid var(--mantine-color-default-border)' } : undefined}
+            >
+              <Stack gap={0} style={{ minWidth: 0 }}>
+                <Text size="sm" truncate>
+                  {SOURCE_LABELS[item.source]}
+                  {item.fileName ? `: ${item.fileName}` : ''}
+                </Text>
+                <Text size="xs" c="dimmed">
+                  {formatDateTime(item.createdAt)} ·{' '}
+                  {item.status === 'PREVIEW'
+                    ? 'ждёт подтверждения'
+                    : `подтверждён, создано: ${formatNumber(item.counts.CREATED ?? 0)}`}
+                </Text>
+              </Stack>
+              <Button size="compact-sm" variant="subtle" onClick={() => onOpen(item.id)}>
+                Открыть
+              </Button>
+            </Group>
+          ))}
+        </Stack>
       </Card>
     </Stack>
   );

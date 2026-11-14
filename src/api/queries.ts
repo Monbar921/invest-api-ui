@@ -511,6 +511,7 @@ export const importKeys = {
   connection: () => [...importKeys.all, 'connection'] as const,
   accounts: () => [...importKeys.all, 'accounts'] as const,
   list: () => [...importKeys.all, 'list'] as const,
+  detail: (id: number) => [...importKeys.all, 'detail', id] as const,
 };
 
 /** Подключён ли токен T-Invest; T-Invest при этом не запрашивается */
@@ -530,6 +531,16 @@ export function useImports() {
   return useQuery({ queryKey: importKeys.list(), queryFn: fetchImports, enabled: authenticated });
 }
 
+/** Импорт со строками; id null - не запрашивается. Предпросмотр бэк отдаёт с актуальными статусами строк */
+export function useImport(id: number | null) {
+  const { authenticated } = useSession();
+  return useQuery({
+    queryKey: importKeys.detail(id ?? 0),
+    queryFn: () => fetchImport(id ?? 0),
+    enabled: authenticated && id != null,
+  });
+}
+
 /**
  * Импорт: токен, предпросмотр (по токену или из файла), подтверждение. После подтверждения перечитываются портфель,
  * тариф (покупки считаются в лимите) и список импортов
@@ -541,24 +552,32 @@ export function useImportMutations() {
     connect: useMutation({ mutationFn: connectBroker, onSuccess: refreshConnection }),
     disconnect: useMutation({ mutationFn: disconnectBroker, onSuccess: refreshConnection }),
     previewTinvest: useMutation({
-      mutationFn: ({ accountIds, from }: { accountIds: string[]; from: string | null }) => previewTinvestImport(accountIds, from),
+      mutationFn: ({ accountIds, from, broker }: { accountIds: string[]; from: string | null; broker: string | null }) =>
+        previewTinvestImport(accountIds, from, broker),
       onSuccess: refreshConnection,
     }),
     previewFile: useMutation({
-      mutationFn: ({ format, file }: { format: Exclude<ImportSource, 'TINVEST_API'>; file: File }) =>
-        previewFileImport(format, file),
+      mutationFn: ({
+        format,
+        file,
+        broker,
+      }: {
+        format: Exclude<ImportSource, 'TINVEST_API'>;
+        file: File;
+        broker: string | null;
+      }) => previewFileImport(format, file, broker),
       onSuccess: refreshConnection,
     }),
-    open: useMutation({ mutationFn: fetchImport }),
     apply: useMutation({
       mutationFn: ({ id, itemIds }: { id: number; itemIds: number[] }) => applyImport(id, itemIds),
-      onSuccess: () => {
+      onSuccess: (report) => {
         trackGoal('portfolio_import_applied');
-        return Promise.all([
-          queryClient.invalidateQueries({ queryKey: portfolioKeys.all }),
-          queryClient.invalidateQueries({ queryKey: accountKeys.plan }),
-          refreshConnection(),
-        ]);
+        queryClient.setQueryData(importKeys.detail(report.id), report);
+        // не ждём: отчёт показывается сразу, портфель и тариф перечитываются в фоне
+        void queryClient.invalidateQueries({ queryKey: portfolioKeys.all });
+        void queryClient.invalidateQueries({ queryKey: accountKeys.plan });
+        void queryClient.invalidateQueries({ queryKey: importKeys.list() });
+        void queryClient.invalidateQueries({ queryKey: importKeys.connection() });
       },
     }),
   };

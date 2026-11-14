@@ -22,22 +22,30 @@ export function fetchBrokerAccounts(): Promise<BrokerAccount[]> {
   return request<BrokerAccount[]>(`${IMPORTS_PATH}/tinvest/accounts`);
 }
 
-/** Предпросмотр сделок со счетов T-Invest; from не задан - вся история */
-export function previewTinvestImport(accountIds: string[], from: string | null): Promise<PortfolioImport> {
+/**
+ * Предпросмотр сделок со счетов T-Invest; from не задан - вся история. broker - брокер у созданных сделок, пусто -
+ * «Т-Инвестиции»
+ */
+export function previewTinvestImport(accountIds: string[], from: string | null, broker: string | null): Promise<PortfolioImport> {
   return request<PortfolioImport>(`${IMPORTS_PATH}/tinvest/preview`, {
     method: 'POST',
-    body: JSON.stringify({ accountIds, from }),
+    body: JSON.stringify({ accountIds, from, broker }),
   });
 }
 
-/** Предпросмотр сделок из файла отчёта брокера */
-export function previewFileImport(format: Exclude<ImportSource, 'TINVEST_API'>, file: File): Promise<PortfolioImport> {
+/** Предпросмотр сделок из файла отчёта брокера; broker - брокер у созданных сделок, пусто - из отчёта */
+export function previewFileImport(
+  format: Exclude<ImportSource, 'TINVEST_API'>,
+  file: File,
+  broker: string | null,
+): Promise<PortfolioImport> {
   const body = new FormData();
   body.append('file', file);
-  return request<PortfolioImport>(`${IMPORTS_PATH}/file/preview?${new URLSearchParams({ format })}`, {
-    method: 'POST',
-    body,
-  });
+  const query = new URLSearchParams({ format });
+  if (broker) {
+    query.set('broker', broker);
+  }
+  return request<PortfolioImport>(`${IMPORTS_PATH}/file/preview?${query}`, { method: 'POST', body });
 }
 
 /** Создать выбранные сделки предпросмотра; в ответе - отчёт */

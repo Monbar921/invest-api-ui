@@ -799,7 +799,7 @@ export interface Payment {
 }
 
 /** Откуда сделки импорта: токен T-Invest, свой шаблон CSV, HTML-отчёт Сбербанка */
-export type ImportSource = 'TINVEST_API' | 'CSV' | 'SBER_HTML';
+export type ImportSource = 'TINVEST_API' | 'CSV' | 'SBER_HTML' | 'ALFA_XLSX';
 
 /**
  * Сделка импорта. Выбрать можно NEW (выбрана по умолчанию), POSSIBLE_DUPLICATE и NEEDS_REVIEW; после подтверждения -
@@ -823,6 +823,8 @@ export interface ImportItem {
   price: number | null;
   aci: number | null;
   commission: number | null;
+  /** Валюта номинала (rub, usd): в ней НКД и комиссия; null - облигация не найдена */
+  currency: string | null;
   amountRub: number | null;
   broker: string | null;
   status: ImportItemStatus;
