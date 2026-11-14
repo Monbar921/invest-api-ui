@@ -124,7 +124,7 @@ export function alertTypeLabel(type: AlertType): string {
     ALERT_TYPES.find((item) => item.type === type)?.label ??
     PRICE_ALERT_TYPES.find((item) => item.type === type)?.label ??
     EVENT_ALERT_TYPES.find((item) => item.type === type)?.label ??
-    (type === 'KEY_RATE' ? KEY_RATE_ALERT.label : type)
+    (type === 'KEY_RATE' ? KEY_RATE_ALERT.label : type === 'SAVED_FILTER' ? 'Новые облигации в фильтре' : type)
   );
 }
 
@@ -158,6 +158,9 @@ export function describeAlert(alert: Alert): string {
   }
   if (isPriceAlert(alert.type)) {
     return describePriceAlert(alert);
+  }
+  if (alert.type === 'SAVED_FILTER') {
+    return `Фильтр «${alert.filterName ?? ''}»`;
   }
   return alertTypeLabel(alert.type);
 }

@@ -22,6 +22,7 @@ import { BondAlertsPanel, EventSwitch, TelegramRequiredHint } from '../component
 import { useSession } from '../api/session';
 import { ErrorState } from '../components/ErrorState';
 import { LoginRequired } from '../components/LoginRequired';
+import { SavedFiltersCard } from '../components/SavedFiltersCard';
 import { describeAlert, KEY_RATE_ALERT, NOTIFICATION_STATUSES } from '../lib/alerts';
 import { formatDateTime } from '../lib/format';
 import { usePageMeta } from '../lib/seo';
@@ -43,6 +44,7 @@ export function AlertsPage() {
       <Title order={2}>Уведомления</Title>
       <TelegramRequiredHint />
       <CentralBankCard />
+      <SavedFiltersCard />
       <AlertsByBond />
       <History />
     </Stack>

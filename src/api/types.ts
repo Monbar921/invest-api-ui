@@ -401,7 +401,10 @@ export type PriceAlertType = 'PRICE_LEVEL' | 'PRICE_CHANGE' | 'PRICE_DAILY_CHANG
 /** Правило по событию: объявлен купон, новости облигации, рейтинги эмитента, решения по ключевой ставке */
 export type EventAlertType = 'FLOATER_COUPON' | 'BOND_NEWS' | 'ISSUER_RATING' | 'KEY_RATE';
 
-export type AlertType = DateAlertType | PriceAlertType | EventAlertType;
+/** Новые облигации в выборке сохранённого фильтра; включается переключателем у фильтра, не через POST /alerts */
+export type FilterAlertType = 'SAVED_FILTER';
+
+export type AlertType = DateAlertType | PriceAlertType | EventAlertType | FilterAlertType;
 
 /** UP - выросло до уровня или на порог, DOWN - снизилось, ANY - в любую сторону (только изменения цены) */
 export type AlertDirection = 'UP' | 'DOWN' | 'ANY';
@@ -409,12 +412,15 @@ export type AlertDirection = 'UP' | 'DOWN' | 'ANY';
 /** Правило уведомления пользователя по облигации */
 export interface Alert {
   id: number;
-  /** null - правило без облигации (KEY_RATE) */
+  /** null - правило без облигации (KEY_RATE, SAVED_FILTER) */
   ticker: string | null;
   /** null - облигации уже нет в системе */
   bondName: string | null;
   isin: string | null;
   type: AlertType;
+  /** Сохранённый фильтр - только у SAVED_FILTER */
+  filterId?: number | null;
+  filterName?: string | null;
   /** 1..60; только у правил по датам */
   days: number | null;
   /** Только у правил по цене и доходности */
@@ -780,7 +786,7 @@ export interface CalendarLink {
 }
 
 /** Лимит тарифа: правила уведомлений, покупки в портфеле */
-export type PlanLimit = 'ALERTS' | 'PORTFOLIO_POSITIONS';
+export type PlanLimit = 'ALERTS' | 'PORTFOLIO_POSITIONS' | 'SAVED_FILTERS';
 
 /** Фича, которую тариф включает или нет */
 export type PlanFeature = 'CALENDAR_ICS' | 'BROKER_IMPORT';
@@ -950,4 +956,21 @@ export interface BrokerConnection {
   connectedAt: string | null;
   lastImportAt: string | null;
   accounts: BrokerAccount[] | null;
+}
+
+/** Сохранённый фильтр списка облигаций */
+export interface SavedFilter {
+  id: number;
+  name: string;
+  scope: 'ALL' | 'LOCAL' | 'FOREIGN';
+  /** Фильтры и сортировка - как в теле запроса страницы облигаций */
+  parameters: BondParameters;
+  /** Уведомления о новых облигациях в выборке включены */
+  notify: boolean;
+  /** Правило уведомлений (SAVED_FILTER); null - уведомления выключены */
+  alertId: number | null;
+  /** Сколько облигаций в выборке сейчас; null - бэк ещё не загрузил облигации */
+  matches: number | null;
+  createdAt: string;
+  updatedAt: string;
 }

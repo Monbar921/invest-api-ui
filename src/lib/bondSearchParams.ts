@@ -225,6 +225,56 @@ export function toBondParameters(state: BondSearchState): BondParameters {
   };
 }
 
+/**
+ * Параметры запроса (сохранённый фильтр) → состояние таблицы на первой странице: обратное {@link toBondParameters}.
+ * Бэк отдаёт незаданные поля как null; то, чего нет в фильтрах UI, отбрасывается.
+ */
+export function fromBondParameters(scope: BondScope, parameters: BondParameters): BondSearchState {
+  const sort = parameters.bondSorts?.[0];
+  return {
+    scope,
+    page: 1,
+    size: DEFAULT_PAGE_SIZE,
+    sortField: oneOf(sort?.sortField, SORT_FIELDS, DEFAULT_SORT.field),
+    sortOrder: oneOf(sort?.sortOrder, ['ASC', 'DESC'] as SortOrder[], DEFAULT_SORT.order),
+    priceMin: given(parameters.currentPrice?.min),
+    priceMax: given(parameters.currentPrice?.max),
+    percentMin: given(parameters.percentagePrice?.min),
+    percentMax: given(parameters.percentagePrice?.max),
+    riskLevels: (parameters.riskLevels ?? []).filter((level) => FILTERABLE_RISK_LEVELS.includes(level)),
+    ofz: parameters.isOfz == null ? 'any' : parameters.isOfz ? 'only' : 'exclude',
+    couponType: parameters.isFixedCoupon == null ? 'any' : parameters.isFixedCoupon ? 'fixed' : 'floating',
+    sectors: parameters.sectors ?? [],
+    yearsMin: given(parameters.yearsToMaturity?.min),
+    yearsMax: given(parameters.yearsToMaturity?.max),
+    frequencies: (parameters.couponFrequencies ?? []).filter((frequency) => COUPON_FREQUENCIES.includes(frequency)),
+    offer: presenceOf(parameters.hasOffer),
+    amortization: presenceOf(parameters.hasAmortization),
+    ratingMin: oneOf<string | undefined>(parameters.creditRating?.min ?? undefined, RATING_GRADES, undefined),
+    durationMin: given(parameters.duration?.min),
+    durationMax: given(parameters.duration?.max),
+    ytmMin: given(parameters.yieldToMaturity?.min),
+    ytmMax: given(parameters.yieldToMaturity?.max),
+    turnoverMin: given(parameters.avgDailyTurnover?.min),
+    spreadMin: given(parameters.spreadToOfz?.min),
+    spreadMax: given(parameters.spreadToOfz?.max),
+  };
+}
+
+/** Одна и та же выборка: вид, фильтры и сортировка совпадают (страница и её размер не важны) */
+export function sameSelection(a: BondSearchState, b: BondSearchState): boolean {
+  const key = (state: BondSearchState) => toSearchParams({ ...state, page: 1, size: DEFAULT_PAGE_SIZE }).toString();
+  return key(a) === key(b);
+}
+
+function given(value: number | null | undefined): number | undefined {
+  return value ?? undefined;
+}
+
+function presenceOf(value: boolean | null | undefined): PresenceFilter {
+  return value == null ? 'any' : value ? 'with' : 'without';
+}
+
 function presence(filter: PresenceFilter): boolean | undefined {
   return filter === 'any' ? undefined : filter === 'with';
 }

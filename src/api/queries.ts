@@ -31,6 +31,7 @@ import {
 } from './imports';
 import { cancelAutoRenewal, createPayment, fetchAccountPlan, fetchPayment, fetchPayments } from './account';
 import { ApiError } from './client';
+import { createSavedFilter, deleteSavedFilter, fetchSavedFilters, type SavedFilterInput, updateSavedFilter } from './filters';
 import { useSession } from './session';
 import {
   type AlertChanges,
@@ -402,6 +403,44 @@ export function useAlertMutations() {
       onSuccess,
     }),
     remove: useMutation({ mutationFn: deleteAlert, onSuccess }),
+  };
+}
+
+export const savedFilterKeys = {
+  all: ['saved-filters'] as const,
+};
+
+/** Сохранённые фильтры пользователя - для списка облигаций и страницы уведомлений */
+export function useSavedFilters() {
+  const { authenticated } = useSession();
+  return useQuery({ queryKey: savedFilterKeys.all, queryFn: fetchSavedFilters, enabled: authenticated });
+}
+
+/**
+ * Создание, изменение и удаление фильтра. Переключатель уведомлений создаёт и удаляет правило SAVED_FILTER - после
+ * любой операции перечитываются и правила, и использование лимитов тарифа.
+ */
+export function useSavedFilterMutations() {
+  const queryClient = useQueryClient();
+  const onSuccess = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: savedFilterKeys.all }),
+      queryClient.invalidateQueries({ queryKey: alertKeys.all }),
+      queryClient.invalidateQueries({ queryKey: accountKeys.plan }),
+    ]);
+  return {
+    create: useMutation({
+      mutationFn: (filter: SavedFilterInput & { name: string }) => createSavedFilter(filter),
+      onSuccess: (_filter, input) => {
+        trackGoal('saved_filter_created', { notify: String(Boolean(input.notify)) });
+        return onSuccess();
+      },
+    }),
+    update: useMutation({
+      mutationFn: ({ id, ...changes }: SavedFilterInput & { id: number }) => updateSavedFilter(id, changes),
+      onSuccess,
+    }),
+    remove: useMutation({ mutationFn: deleteSavedFilter, onSuccess }),
   };
 }
 

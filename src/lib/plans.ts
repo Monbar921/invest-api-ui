@@ -5,6 +5,7 @@ import { formatNumber, formatRub } from './format';
 export const PLAN_LIMIT_LABELS: Record<PlanLimit, string> = {
   ALERTS: 'Правила уведомлений',
   PORTFOLIO_POSITIONS: 'Покупки в портфеле',
+  SAVED_FILTERS: 'Сохранённые фильтры',
 };
 
 /** Подписи фич тарифа */

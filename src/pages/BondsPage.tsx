@@ -9,6 +9,7 @@ import { BondSearch } from '../components/BondSearch';
 import { BondsTable } from '../components/BondsTable';
 import { ErrorState } from '../components/ErrorState';
 import { NewsFeed } from '../components/NewsFeed';
+import { SavedFilters } from '../components/SavedFilters';
 import { trackGoal } from '../lib/analytics';
 import { EMPTY_FILTERS, parseBondSearch, toBondParameters, toSearchParams, type BondSearchState } from '../lib/bondSearchParams';
 import { formatNumber } from '../lib/format';
@@ -85,6 +86,7 @@ function BondsList({ state, parameters, query, update, reset, onSelect }: BondsL
               Найдено: {formatNumber(query.data.totalElements)}
             </Text>
           )}
+          <SavedFilters state={state} parameters={parameters} onApply={(saved) => update({ ...saved, size: state.size })} />
           <BondExportButton scope={state.scope} parameters={parameters} />
         </Group>
       </Group>

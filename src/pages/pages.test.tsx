@@ -166,8 +166,13 @@ describe('BondsPage', () => {
     const urls: string[] = [];
     vi.stubGlobal('fetch', async (url: string) => {
       urls.push(url);
-      // колокольчики в таблице запрашивают правила уведомлений
-      const body = url.endsWith('/api/alerts') ? [] : url.includes('/search') ? [found] : page([bond('RU000A1')]);
+      // колокольчики в таблице запрашивают правила уведомлений, меню над таблицей - сохранённые фильтры
+      const body =
+        url.endsWith('/api/alerts') || url.endsWith('/api/alerts/filters')
+          ? []
+          : url.includes('/search')
+            ? [found]
+            : page([bond('RU000A1')]);
       return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
     });
     const { router } = renderRoute(<BondsPage />, { path: '/bonds', url: '/bonds?coupon=fixed' });

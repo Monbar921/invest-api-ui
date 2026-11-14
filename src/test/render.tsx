@@ -51,7 +51,7 @@ export const FREE_PLAN: AccountPlan = {
     title: 'Бесплатный',
     description: null,
     paid: false,
-    limits: { ALERTS: 50, PORTFOLIO_POSITIONS: 200 },
+    limits: { ALERTS: 50, PORTFOLIO_POSITIONS: 200, SAVED_FILTERS: 5 },
     features: ['CALENDAR_ICS'],
     price: null,
     period: null,
@@ -64,6 +64,7 @@ export const FREE_PLAN: AccountPlan = {
   limits: [
     { limit: 'ALERTS', max: 50, used: 0 },
     { limit: 'PORTFOLIO_POSITIONS', max: 200, used: 0 },
+    { limit: 'SAVED_FILTERS', max: 5, used: 0 },
   ],
   plans: [],
   payments: { enabled: false, offerUrl: null, privacyUrl: null, autoRenewal: null },
@@ -96,6 +97,8 @@ const SIDE_REQUESTS: [RegExp, unknown][] = [
   [/\/api\/bonds\/sectors$/, ['financial', 'government']],
   // колокольчики уведомлений в таблице и карточке: все правила пользователя одним запросом
   [/\/api\/alerts$/, []],
+  // сохранённые фильтры над списком облигаций
+  [/\/api\/alerts\/filters$/, []],
   // тариф для подсказок у закрытых фич: бесплатный, всё открыто
   [/\/api\/account\/plan$/, FREE_PLAN],
 ];
