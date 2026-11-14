@@ -146,6 +146,8 @@ export function PortfolioImport() {
     );
   };
   const step = current == null ? 0 : current.status === 'PREVIEW' ? 1 : 2;
+  // на телефоне подписан только текущий шаг: три подписи в строку 375 px не помещаются
+  const stepLabel = (index: number, label: string) => (mobile && index !== step ? undefined : label);
 
   return (
     <Stack gap="lg">
@@ -154,9 +156,8 @@ export function PortfolioImport() {
         Повторный импорт того же отчёта ничего не задвоит.
       </Text>
       {closed && <PlanFeatureHint planTitle={upgrade?.title} />}
-      {/* на телефоне - без описаний шагов: три шага с описаниями не помещаются в строку */}
       <Stepper active={step} size={mobile ? 'xs' : 'sm'} allowNextStepsSelect={false}>
-        <Stepper.Step label="Источник" description={mobile ? undefined : 'Токен или файл'}>
+        <Stepper.Step label={stepLabel(0, 'Источник')} description={mobile ? undefined : 'Токен или файл'}>
           {openedId != null && opened.isPending ? (
             <Loader size="sm" mt="md" />
           ) : (
@@ -164,10 +165,10 @@ export function PortfolioImport() {
           )}
           {openedId != null && opened.isError && <ApiErrorText error={opened.error} />}
         </Stepper.Step>
-        <Stepper.Step label="Предпросмотр" description={mobile ? undefined : 'Что добавить'}>
+        <Stepper.Step label={stepLabel(1, 'Предпросмотр')} description={mobile ? undefined : 'Что добавить'}>
           {current && <PreviewStep key={current.id} current={current} onApplied={show} onCancel={() => show(null)} />}
         </Stepper.Step>
-        <Stepper.Step label="Отчёт" description={mobile ? undefined : 'Что получилось'}>
+        <Stepper.Step label={stepLabel(2, 'Отчёт')} description={mobile ? undefined : 'Что получилось'}>
           {current && <ReportStep current={current} onNew={() => show(null)} />}
         </Stepper.Step>
       </Stepper>
@@ -564,7 +565,7 @@ function ImportHistory({ onOpen }: { onOpen: (id: number) => void }) {
               py="xs"
               style={index > 0 ? { borderTop: '1px solid var(--mantine-color-default-border)' } : undefined}
             >
-              <Stack gap={0} style={{ minWidth: 0 }}>
+              <Stack gap={0} style={{ flex: 1, minWidth: 0 }}>
                 <Text size="sm" truncate>
                   {SOURCE_LABELS[item.source]}
                   {item.fileName ? `: ${item.fileName}` : ''}
@@ -576,7 +577,7 @@ function ImportHistory({ onOpen }: { onOpen: (id: number) => void }) {
                     : `подтверждён, создано: ${formatNumber(item.counts.CREATED ?? 0)}`}
                 </Text>
               </Stack>
-              <Button size="compact-sm" variant="subtle" onClick={() => onOpen(item.id)}>
+              <Button size="compact-sm" variant="subtle" style={{ flexShrink: 0 }} onClick={() => onOpen(item.id)}>
                 Открыть
               </Button>
             </Group>
