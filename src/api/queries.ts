@@ -5,6 +5,7 @@ import {
   fetchBondEvents,
   fetchBondNews,
   fetchBondsPage,
+  fetchSectors,
   fetchBrokerLinks,
   fetchCandles,
   fetchCollection,
@@ -84,6 +85,7 @@ export const bondKeys = {
   issuer: (id: number) => [...bondKeys.all, 'issuer', id] as const,
   issuerNews: (id: number) => [...bondKeys.all, 'issuer', id, 'news'] as const,
   collections: () => [...bondKeys.all, 'collections'] as const,
+  sectors: () => [...bondKeys.all, 'sectors'] as const,
   collection: (slug: string, page: number, size: number) => [...bondKeys.all, 'collection', slug, page, size] as const,
 };
 
@@ -109,6 +111,17 @@ export function useBondsPage(scope: BondScope, page: number, size: number, param
     queryFn: () => fetchBondsPage(scope, page, size, parameters),
     // при смене страницы или фильтра таблица показывает прежние строки, пока грузятся новые
     placeholderData: keepPreviousData,
+  });
+}
+
+/** Секторы для фильтра; грузятся, только когда открыта панель фильтров скринера */
+export function useSectors(enabled: boolean) {
+  return useQuery({
+    queryKey: bondKeys.sectors(),
+    queryFn: fetchSectors,
+    enabled,
+    // список секторов меняется только с новыми облигациями
+    staleTime: 60 * 60 * 1000,
   });
 }
 

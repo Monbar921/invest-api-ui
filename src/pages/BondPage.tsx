@@ -18,9 +18,14 @@ import {
   formatPercent,
   formatRub,
   formatSector,
+  formatSpread,
   formatTimeToMaturity,
+  formatTurnover,
+  formatYears,
   isRubCurrency,
   plural,
+  RATING_AGENCIES,
+  RATING_OUTLOOKS,
 } from '../lib/format';
 import { BondAlertsButton } from '../components/BondAlertsButton';
 import { usePageMeta } from '../lib/seo';
@@ -124,7 +129,7 @@ function BondDetails({ bond }: { bond: Bond }) {
         <Stat
           label="Купон"
           value={bond.coupon?.interest != null ? `${formatPercent(bond.coupon.interest)} к цене` : '—'}
-          hint={bond.coupon ? couponHint(bond.coupon) : 'данных о купоне нет'}
+          hint={bond.coupon ? couponHint(bond.coupon, bond.floaterBaseRate) : 'данных о купоне нет'}
         />
         <Stat
           label="Доходность к погашению"
@@ -132,6 +137,10 @@ function BondDetails({ bond }: { bond: Bond }) {
           hint={yieldHint(bond)}
         />
         <Stat label="Погашение" value={formatDate(bond.maturityDate)} hint={formatTimeToMaturity(bond.maturityDate)} />
+        <RatingStat bond={bond} />
+        <Stat label="Дюрация" value={formatYears(bond.coupon?.durationMacaulay)} hint={durationHint(bond.coupon)} />
+        <Stat label="Спред к ОФЗ" value={formatSpread(bond.spreadToOfz)} hint={spreadHint(bond)} />
+        <Stat label="Оборот в день" value={formatTurnover(bond.liquidity?.avgDailyTurnoverRub)} hint={liquidityHint(bond)} />
       </SimpleGrid>
 
       <BrokerLinks ticker={bond.ticker} />
@@ -205,9 +214,69 @@ function yieldHint(bond: Bond): string {
   return 'с учётом цены, НКД и купонов';
 }
 
-/** «постоянный · 12 выплат в год» */
-function couponHint(coupon: Coupon): string {
+/** «постоянный · 12 выплат в год»; у флоатера - база ставки: «переменный, Ключевая ставка · 4 выплаты в год» */
+function couponHint(coupon: Coupon, floaterBaseRate?: string | null): string {
   const payments = `${formatNumber(coupon.quantityPerYear)} ${plural(coupon.quantityPerYear, 'выплата', 'выплаты', 'выплат')} в год`;
   const type = couponTypeLabel(coupon.isFixed);
-  return type ? `${type} · ${payments}` : payments;
+  const typeWithBase = type && floaterBaseRate ? `${type}, ${floaterBaseRate}` : type;
+  return typeWithBase ? `${typeWithBase} · ${payments}` : payments;
+}
+
+/** Кредитный рейтинг: самый низкий из агентств крупно, под ним рейтинги каждого агентства со ссылкой на релиз */
+function RatingStat({ bond }: { bond: Bond }) {
+  const ratings = bond.creditRatings ?? (bond.creditRating ? [bond.creditRating] : []);
+  return (
+    <Card withBorder padding="md">
+      <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
+        Кредитный рейтинг
+      </Text>
+      <Text size="xl" fw={600} mt={4}>
+        {bond.creditRating?.grade ?? '—'}
+      </Text>
+      {ratings.length === 0 ? (
+        <Text size="sm" c="dimmed">
+          нет рейтинга АКРА и НКР
+        </Text>
+      ) : (
+        ratings.map((rating) => (
+          <Text key={rating.agency} size="sm" c="dimmed">
+            {RATING_AGENCIES[rating.agency]}:{' '}
+            {rating.url ? (
+              <Anchor href={rating.url} target="_blank" rel="noopener noreferrer" size="sm">
+                {rating.rating}
+              </Anchor>
+            ) : (
+              rating.rating
+            )}
+            {rating.scope === 'ISSUER' ? ' (эмитента)' : ' (выпуска)'}
+            {rating.outlook ? `, ${RATING_OUTLOOKS[rating.outlook]}` : ''} · {formatDate(rating.actionDate)}
+          </Text>
+        ))
+      )}
+    </Card>
+  );
+}
+
+/** «модифицированная 2,1: цена −2,1 % при росте доходности на 1 п.п.» */
+function durationHint(coupon: Coupon | null): string {
+  const modified = coupon?.durationModified;
+  if (modified == null) {
+    return 'нет доходности к погашению';
+  }
+  return `модифицированная ${formatNumber(modified)}: цена −${formatNumber(modified)} % при росте доходности на 1 п.п.`;
+}
+
+function spreadHint(bond: Bond): string {
+  if (bond.ofzCurveYield != null) {
+    return `ОФЗ на срок дюрации - ${formatPercent(bond.ofzCurveYield)}`;
+  }
+  return 'только рублёвые облигации с доходностью к погашению';
+}
+
+function liquidityHint(bond: Bond): string {
+  const liquidity = bond.liquidity;
+  if (!liquidity) {
+    return 'свечей по облигации нет';
+  }
+  return `≈ ${formatNumber(liquidity.avgDailyVolume)} шт. · средний за ${liquidity.periodDays} дней`;
 }

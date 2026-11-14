@@ -1,4 +1,4 @@
-import { parseBondSearch, toBondParameters, toSearchParams } from './bondSearchParams';
+import { hasScreenerFilters, parseBondSearch, toBondParameters, toSearchParams } from './bondSearchParams';
 
 describe('bondSearchParams', () => {
   it('без параметров - умолчания как на бэке', () => {
@@ -36,8 +36,61 @@ describe('bondSearchParams', () => {
       riskLevels: ['RISK_LEVEL_LOW', 'RISK_LEVEL_HIGH'],
       ofz: 'exclude',
       couponType: 'floating',
+      sectors: [],
+      frequencies: [],
+      offer: 'any',
+      amortization: 'any',
     });
     expect(toSearchParams(state).toString()).toBe(url);
+  });
+
+  it('фильтры скринера: разбирает, собирает и отправляет', () => {
+    const url =
+      'sort=CREDIT_RATING%3ADESC&sector=financial%2Cgovernment&yearsMin=1&yearsMax=3&freq=4%2C12&offer=without&amort=with' +
+      '&ratingMin=BBB-&durMax=2.5&ytmMin=15&turnoverMin=1000000&spreadMin=-0.5&spreadMax=4';
+
+    const state = parseBondSearch(new URLSearchParams(url));
+
+    expect(state).toMatchObject({
+      sortField: 'CREDIT_RATING',
+      sectors: ['financial', 'government'],
+      yearsMin: 1,
+      yearsMax: 3,
+      frequencies: [4, 12],
+      offer: 'without',
+      amortization: 'with',
+      ratingMin: 'BBB-',
+      durationMax: 2.5,
+      ytmMin: 15,
+      turnoverMin: 1000000,
+      spreadMin: -0.5,
+      spreadMax: 4,
+    });
+    expect(toSearchParams(state).toString()).toBe(url);
+    expect(hasScreenerFilters(state)).toBe(true);
+    expect(JSON.parse(JSON.stringify(toBondParameters(state)))).toEqual({
+      bondSorts: [{ sortField: 'CREDIT_RATING', sortOrder: 'DESC' }],
+      sectors: ['financial', 'government'],
+      yearsToMaturity: { min: 1, max: 3 },
+      couponFrequencies: [4, 12],
+      hasOffer: false,
+      hasAmortization: true,
+      creditRating: { min: 'BBB-' },
+      duration: { max: 2.5 },
+      yieldToMaturity: { min: 15 },
+      avgDailyTurnover: { min: 1000000 },
+      spreadToOfz: { min: -0.5, max: 4 },
+    });
+  });
+
+  it('неизвестные рейтинг, частота и сектор в URL отбрасываются', () => {
+    const state = parseBondSearch(new URLSearchParams('ratingMin=Z&freq=3,abc,12&sector=Fin;drop&offer=maybe'));
+
+    expect(state.ratingMin).toBeUndefined();
+    expect(state.frequencies).toEqual([12]);
+    expect(state.sectors).toEqual([]);
+    expect(state.offer).toBe('any');
+    expect(hasScreenerFilters(parseBondSearch(new URLSearchParams('priceMax=10')))).toBe(false);
   });
 
   it('мусор в URL заменяется умолчаниями', () => {

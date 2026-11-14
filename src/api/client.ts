@@ -90,6 +90,31 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
+/** Файл с API: тело и имя из Content-Disposition (без него - fallbackName) */
+export async function download(path: string, init: RequestInit, fallbackName: string): Promise<{ blob: Blob; fileName: string }> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      ...init,
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', ...csrfHeader(init.method), ...init.headers },
+    });
+  } catch {
+    throw new ApiError(0, `Сервер недоступен: ${API_URL || window.location.origin}`);
+  }
+  if (response.status === 401) {
+    login();
+    throw new ApiError(401, 'Требуется вход');
+  }
+  if (!response.ok) {
+    const problem = await readProblem(response);
+    throw new ApiError(response.status, problem.detail ?? problem.title ?? `Ошибка ${response.status}`, problem);
+  }
+  const disposition = response.headers.get('Content-Disposition') ?? '';
+  const fileName = /filename="?([^";]+)"?/.exec(disposition)?.[1] ?? fallbackName;
+  return { blob: await response.blob(), fileName };
+}
+
 async function readProblem(response: Response): Promise<ProblemDetail> {
   try {
     return ((await response.json()) as ProblemDetail | null) ?? {};

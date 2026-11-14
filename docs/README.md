@@ -23,4 +23,5 @@
 - [INVEST-001-plans](../../invest-api/docs/features/INVEST-001-plans/) - страница «Тариф», ссылка «Тарифы» у ответа `402`, подсказка у закрытой фичи
 - [INVEST-001-payments](../../invest-api/docs/features/INVEST-001-payments/) - покупка и продление тарифа на странице «Тариф» (согласие с офертой, переход на оплату Т-Кассы, итог после возврата), автопродление и его отключение, история платежей
 - [INVEST-001-analytics-landing](../../invest-api/docs/features/INVEST-001-analytics-landing/) - продуктовая аналитика с баннером согласия, лендинг для гостя на `/`
+- [INVEST-001-screener-data](../../invest-api/docs/features/INVEST-001-screener-data/) - колонки рейтинга, дюрации, спреда к ОФЗ и оборота, панель «Ещё фильтры», выгрузка в Excel / CSV, данные скринера в карточке
 - [INVEST-001-broker-import](../../invest-api/docs/features/INVEST-001-broker-import/) - вкладка «Импорт» в портфеле: токен T-Invest только на чтение или файл отчёта, предпросмотр с выбором строк, отчёт импорта

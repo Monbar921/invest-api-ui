@@ -1,4 +1,4 @@
-import type { Money, RiskLevel } from '../api/types';
+import type { Money, RatingAgency, RatingOutlook, RiskLevel } from '../api/types';
 
 const LOCALE = 'ru-RU';
 const EMPTY = '—';
@@ -171,4 +171,63 @@ export function formatSector(sector: string | null | undefined): string {
     return EMPTY;
   }
   return SECTORS[sector.toLowerCase()] ?? sector;
+}
+
+/** Ступени общей шкалы рейтингов АКРА и НКР, от лучшей к худшей - как в фильтре бэка */
+export const RATING_GRADES = [
+  'AAA',
+  'AA+',
+  'AA',
+  'AA-',
+  'A+',
+  'A',
+  'A-',
+  'BBB+',
+  'BBB',
+  'BBB-',
+  'BB+',
+  'BB',
+  'BB-',
+  'B+',
+  'B',
+  'B-',
+  'CCC',
+  'CC',
+  'C',
+  'SD',
+  'D',
+];
+
+export const RATING_AGENCIES: Record<RatingAgency, string> = { ACRA: 'АКРА', NKR: 'НКР' };
+
+export const RATING_OUTLOOKS: Record<RatingOutlook, string> = {
+  STABLE: 'стабильный',
+  POSITIVE: 'позитивный',
+  NEGATIVE: 'негативный',
+  DEVELOPING: 'развивающийся',
+  UNDER_REVIEW: 'на пересмотре',
+};
+
+/** Дюрация в годах: «2,35 г.» */
+export function formatYears(value: number | null | undefined): string {
+  return value == null ? EMPTY : `${numberFormat.format(value)} г.`;
+}
+
+/** Спред в процентных пунктах со знаком: «+3,15 п.п.», «−0,4 п.п.» */
+export function formatSpread(value: number | null | undefined): string {
+  if (value == null) {
+    return EMPTY;
+  }
+  const sign = value > 0 ? '+' : value < 0 ? '−' : '';
+  return `${sign}${numberFormat.format(Math.abs(value))} п.п.`;
+}
+
+const compactFormat = new Intl.NumberFormat(LOCALE, { notation: 'compact', maximumFractionDigits: 1 });
+
+/** Оборот в рублях коротко: «1,2 млн ₽»; 0 - «нет сделок» */
+export function formatTurnover(value: number | null | undefined): string {
+  if (value == null) {
+    return EMPTY;
+  }
+  return value === 0 ? 'нет сделок' : `${compactFormat.format(value)} ₽`;
 }

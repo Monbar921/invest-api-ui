@@ -1,7 +1,7 @@
 import { Anchor, Group, Stack, Text } from '@mantine/core';
 import { DataTable, type DataTableColumn, type DataTableSortStatus } from 'mantine-datatable';
 import { Link, useNavigate } from 'react-router';
-import type { Bond, BondSortField, Coupon, Page, Price } from '../api/types';
+import type { Bond, BondSortField, Coupon, CreditRating, Page, Price } from '../api/types';
 import { PAGE_SIZES, type BondSearchState } from '../lib/bondSearchParams';
 import {
   couponTypeLabel,
@@ -10,9 +10,12 @@ import {
   formatNumber,
   formatPercent,
   formatRub,
+  formatSpread,
   formatTimeToMaturity,
+  formatTurnover,
   isRubCurrency,
   plural,
+  RATING_AGENCIES,
 } from '../lib/format';
 import { BondAlertsButton } from './BondAlertsButton';
 import { RiskBadge } from './RiskBadge';
@@ -35,6 +38,10 @@ const SORT_FIELDS: Record<string, BondSortField> = {
   yieldToOffer: 'YIELD_TO_OFFER',
   riskLevel: 'RISK_LEVEL',
   maturityDate: 'MATURITY_DATE',
+  creditRating: 'CREDIT_RATING',
+  duration: 'DURATION',
+  spreadToOfz: 'SPREAD_TO_OFZ',
+  liquidity: 'AVG_DAILY_TURNOVER',
 };
 
 const columns: DataTableColumn<Bond>[] = [
@@ -109,6 +116,51 @@ const columns: DataTableColumn<Bond>[] = [
     sortable: true,
     textAlign: 'right',
     render: (bond) => <OfferYieldCell bond={bond} />,
+  },
+  {
+    accessor: 'creditRating',
+    title: 'Рейтинг',
+    sortable: true,
+    render: (bond) => <RatingCell rating={bond.creditRating ?? null} />,
+  },
+  {
+    accessor: 'duration',
+    title: (
+      <>
+        Дюрация,
+        <br />
+        лет
+      </>
+    ),
+    sortable: true,
+    textAlign: 'right',
+    render: (bond) => formatNumber(bond.coupon?.durationMacaulay),
+  },
+  {
+    accessor: 'spreadToOfz',
+    title: (
+      <>
+        Спред
+        <br />к ОФЗ
+      </>
+    ),
+    sortable: true,
+    textAlign: 'right',
+    noWrap: true,
+    render: (bond) => formatSpread(bond.spreadToOfz),
+  },
+  {
+    accessor: 'liquidity',
+    title: (
+      <>
+        Оборот
+        <br />в день
+      </>
+    ),
+    sortable: true,
+    textAlign: 'right',
+    noWrap: true,
+    render: (bond) => formatTurnover(bond.liquidity?.avgDailyTurnoverRub),
   },
   {
     accessor: 'riskLevel',
@@ -228,6 +280,23 @@ function PriceCell({ price }: { price: Price | null }) {
           {formatMoney(current)}
         </Text>
       )}
+    </Stack>
+  );
+}
+
+/** Ступень общей шкалы и под ней агентство: «A» / «НКР» */
+function RatingCell({ rating }: { rating: CreditRating | null }) {
+  if (!rating) {
+    return '—';
+  }
+  return (
+    <Stack gap={0}>
+      <Text size="sm" fw={500}>
+        {rating.grade}
+      </Text>
+      <Text size="xs" c="dimmed">
+        {RATING_AGENCIES[rating.agency]}
+      </Text>
     </Stack>
   );
 }

@@ -36,6 +36,10 @@ export interface Coupon {
   yieldToMaturity: number | null;
   /** Эффективная доходность к оферте в % годовых; null - оферты нет или посчитать нельзя */
   yieldToOffer: number | null;
+  /** Дюрация Маколея к погашению, лет; null - доходность к погашению не посчитать */
+  durationMacaulay?: number | null;
+  /** Модифицированная дюрация, лет: на сколько % изменится цена при сдвиге доходности на 1 п.п. */
+  durationModified?: number | null;
   /** График выплат - только в карточке облигации, в списках null */
   couponData: CouponPayment[] | null;
 }
@@ -56,7 +60,54 @@ export interface Bond {
   amortizationFlag: boolean;
   /** Эмитент по данным Мосбиржи - только в карточке облигации; null - неизвестен */
   issuer?: IssuerRef | null;
+  /** Рейтинг для сравнения: самый низкий из действующих рейтингов АКРА и НКР; null - рейтинга нет */
+  creditRating?: CreditRating | null;
+  /** Рейтинги по агентствам - только в карточке */
+  creditRatings?: CreditRating[] | null;
+  /** Ликвидность по свечам за 30 дней; null - свечей нет */
+  liquidity?: Liquidity | null;
+  /** Доходность кривой ОФЗ на срок дюрации облигации, % годовых */
+  ofzCurveYield?: number | null;
+  /** Спред к ОФЗ, п.п. (только рублёвые облигации) */
+  spreadToOfz?: number | null;
+  /** База флоатера по данным Мосбиржи: «Ключевая ставка», «Ставка RUONIA» */
+  floaterBaseRate?: string | null;
+  /** Премия флоатера к базе, п.п.; источника нет - null */
+  floaterPremium?: number | null;
 }
+
+export type RatingAgency = 'ACRA' | 'NKR';
+export type RatingOutlook = 'STABLE' | 'POSITIVE' | 'NEGATIVE' | 'DEVELOPING' | 'UNDER_REVIEW';
+
+/** Кредитный рейтинг агентства по национальной шкале */
+export interface CreditRating {
+  agency: RatingAgency;
+  /** ISSUE - рейтинг выпуска, ISSUER - эмитента (у выпуска своего нет) */
+  scope: 'ISSUER' | 'ISSUE';
+  /** Как пишет агентство: «AA-(RU)», «AA-.ru» */
+  rating: string;
+  /** Ступень общей шкалы: «AA-» */
+  grade: string;
+  /** Балл общей шкалы: D - 0 ... AAA - 20 */
+  score: number;
+  outlook: RatingOutlook | null;
+  /** Дата последнего рейтингового действия (YYYY-MM-DD) */
+  actionDate: string;
+  /** Релиз агентства */
+  url: string | null;
+}
+
+/** Ликвидность: средние за торговый день биржи в последние periodDays дней */
+export interface Liquidity {
+  avgDailyVolume: number | null;
+  avgDailyTurnover: Money | null;
+  /** null - нет курса валюты */
+  avgDailyTurnoverRub: number | null;
+  tradingDays: number;
+  periodDays: number;
+}
+
+export type BondExportFormat = 'CSV' | 'XLSX';
 
 /** Эмитент выпуска - для ссылки на его страницу */
 export interface IssuerRef {
@@ -104,7 +155,11 @@ export type BondSortField =
   | 'PRICE'
   | 'PERCENTAGE_PRICE'
   | 'YIELD_TO_MATURITY'
-  | 'YIELD_TO_OFFER';
+  | 'YIELD_TO_OFFER'
+  | 'DURATION'
+  | 'CREDIT_RATING'
+  | 'AVG_DAILY_TURNOVER'
+  | 'SPREAD_TO_OFZ';
 
 export type SortOrder = 'ASC' | 'DESC';
 
@@ -130,6 +185,25 @@ export interface BondParameters {
   isFixedCoupon?: boolean;
   /** Дата погашения в диапазоне (YYYY-MM-DD, включительно); облигация без даты погашения не подходит */
   maturityDate?: { from?: string; to?: string };
+  // фильтры скринера: облигация без значения при заданном фильтре не подходит
+  /** Секторы (government, financial...) - любой из списка */
+  sectors?: string[];
+  /** Лет до погашения */
+  yearsToMaturity?: ValueRange;
+  /** Выплат купона в год - любое из списка */
+  couponFrequencies?: number[];
+  hasOffer?: boolean;
+  hasAmortization?: boolean;
+  /** Ступени общей шкалы рейтингов: min - худшая допустимая, max - лучшая */
+  creditRating?: { min?: string; max?: string };
+  /** Дюрация Маколея, лет */
+  duration?: ValueRange;
+  /** Доходность к погашению, % годовых */
+  yieldToMaturity?: ValueRange;
+  /** Средний дневной оборот за 30 дней, ₽ */
+  avgDailyTurnover?: ValueRange;
+  /** Спред к ОФЗ, п.п. */
+  spreadToOfz?: ValueRange;
 }
 
 /** Облигация в результатах поиска - только общие сведения */

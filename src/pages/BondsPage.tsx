@@ -2,14 +2,15 @@ import { Anchor, Box, Grid, Group, Stack, Tabs, Text, Title } from '@mantine/cor
 import { useMemo } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useBondsPage, useCollections } from '../api/queries';
-import type { BondScope } from '../api/types';
+import type { BondParameters, BondScope } from '../api/types';
+import { BondExportButton } from '../components/BondExportButton';
 import { BondFilters } from '../components/BondFilters';
 import { BondSearch } from '../components/BondSearch';
 import { BondsTable } from '../components/BondsTable';
 import { ErrorState } from '../components/ErrorState';
 import { NewsFeed } from '../components/NewsFeed';
 import { trackGoal } from '../lib/analytics';
-import { parseBondSearch, toBondParameters, toSearchParams, type BondSearchState } from '../lib/bondSearchParams';
+import { EMPTY_FILTERS, parseBondSearch, toBondParameters, toSearchParams, type BondSearchState } from '../lib/bondSearchParams';
 import { formatNumber } from '../lib/format';
 import { usePageMeta } from '../lib/seo';
 
@@ -28,8 +29,8 @@ export function BondsPage() {
   usePageMeta({
     title: 'Облигации Мосбиржи: цены, доходность, купоны',
     description:
-      'Список облигаций: ОФЗ, корпоративные и валютные выпуски. Фильтры по цене, риску и типу купона, сортировка по ' +
-      'доходности к погашению и к оферте, лента новостей ЦБ и Мосбиржи.',
+      'Список облигаций: ОФЗ, корпоративные и валютные выпуски. Фильтры по цене, риску, рейтингу, дюрации, спреду к ОФЗ ' +
+      'и ликвидности, сортировка по доходности к погашению и к оферте, лента новостей ЦБ и Мосбиржи.',
     canonicalPath: '/bonds',
   });
 
@@ -41,16 +42,7 @@ export function BondsPage() {
     setSearchParams(toSearchParams({ ...state, ...(resetPage ? { page: 1 } : {}), ...patch }));
   };
 
-  const reset = () =>
-    update({
-      priceMin: undefined,
-      priceMax: undefined,
-      percentMin: undefined,
-      percentMax: undefined,
-      riskLevels: [],
-      ofz: 'any',
-      couponType: 'any',
-    });
+  const reset = () => update(EMPTY_FILTERS);
 
   return (
     // лента слева; на узком экране она уходит под таблицу - облигации остаются первыми
@@ -62,6 +54,7 @@ export function BondsPage() {
       <Grid.Col span={{ base: 24, lg: 17, xl: 18 }} order={{ base: 1, lg: 2 }}>
         <BondsList
           state={state}
+          parameters={parameters}
           query={query}
           update={update}
           reset={reset}
@@ -74,22 +67,26 @@ export function BondsPage() {
 
 interface BondsListProps {
   state: BondSearchState;
+  parameters: BondParameters;
   query: ReturnType<typeof useBondsPage>;
   update: (patch: Partial<BondSearchState>, options?: { resetPage?: boolean }) => void;
   reset: () => void;
   onSelect: (ticker: string) => void;
 }
 
-function BondsList({ state, query, update, reset, onSelect }: BondsListProps) {
+function BondsList({ state, parameters, query, update, reset, onSelect }: BondsListProps) {
   return (
     <Stack gap="md">
       <Group justify="space-between" align="flex-end">
         <Title order={2}>Облигации</Title>
-        {query.data && (
-          <Text c="dimmed" size="sm">
-            Найдено: {formatNumber(query.data.totalElements)}
-          </Text>
-        )}
+        <Group gap="sm">
+          {query.data && (
+            <Text c="dimmed" size="sm">
+              Найдено: {formatNumber(query.data.totalElements)}
+            </Text>
+          )}
+          <BondExportButton scope={state.scope} parameters={parameters} />
+        </Group>
       </Group>
 
       <CollectionLinks />

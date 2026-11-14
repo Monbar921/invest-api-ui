@@ -1,8 +1,9 @@
-import { request } from './client';
+import { download, request } from './client';
 import type {
   Bond,
   BondCollection,
   BondCollectionPage,
+  BondExportFormat,
   BondEvent,
   BondParameters,
   BondScope,
@@ -27,6 +28,24 @@ export function fetchBondsPage(scope: BondScope, page: number, size: number, par
     method: 'POST',
     body: JSON.stringify(parameters),
   });
+}
+
+/** Вся выборка с фильтрами и сортировкой - файлом CSV или Excel; только после входа */
+export function exportBonds(
+  scope: BondScope,
+  format: BondExportFormat,
+  parameters: BondParameters,
+): Promise<{ blob: Blob; fileName: string }> {
+  return download(
+    `${BONDS_PATH}/${scope}/export?${new URLSearchParams({ format })}`,
+    { method: 'POST', body: JSON.stringify(parameters) },
+    `bonds.${format === 'XLSX' ? 'xlsx' : 'csv'}`,
+  );
+}
+
+/** Секторы облигаций в системе - значения фильтра */
+export function fetchSectors(): Promise<string[]> {
+  return request<string[]>(`${BONDS_PATH}/sectors`);
 }
 
 export function fetchBond(ticker: string): Promise<Bond> {
