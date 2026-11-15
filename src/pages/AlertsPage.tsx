@@ -8,6 +8,7 @@ import {
   Loader,
   Modal,
   Popover,
+  SegmentedControl,
   Stack,
   Text,
   Title,
@@ -23,7 +24,14 @@ import { useSession } from '../api/session';
 import { ErrorState } from '../components/ErrorState';
 import { LoginRequired } from '../components/LoginRequired';
 import { SavedFiltersCard } from '../components/SavedFiltersCard';
-import { describeAlert, KEY_RATE_ALERT, NOTIFICATION_STATUSES } from '../lib/alerts';
+import {
+  describeAlert,
+  DIGEST_PERIODS,
+  KEY_RATE_ALERT,
+  NOTIFICATION_STATUSES,
+  PORTFOLIO_DIGEST_ALERT,
+  PORTFOLIO_RISK_ALERT,
+} from '../lib/alerts';
 import { formatDateTime } from '../lib/format';
 import { usePageMeta } from '../lib/seo';
 
@@ -35,7 +43,7 @@ export function AlertsPage() {
     return (
       <LoginRequired
         title="Уведомления"
-        text="Войдите, чтобы получать в Telegram уведомления о купонах, офертах, погашениях, цене облигаций и решениях Банка России по ключевой ставке."
+        text="Войдите, чтобы получать в Telegram уведомления о купонах, офертах, погашениях, цене облигаций, рисках по портфелю, дайджест портфеля и решения Банка России по ключевой ставке."
       />
     );
   }
@@ -43,11 +51,61 @@ export function AlertsPage() {
     <Stack gap="lg">
       <Title order={2}>Уведомления</Title>
       <TelegramRequiredHint />
+      <PortfolioCard />
       <CentralBankCard />
       <SavedFiltersCard />
       <AlertsByBond />
       <History />
     </Stack>
+  );
+}
+
+/**
+ * Правила по всему портфелю: монитор риска и дайджест. Период дайджеста выбирается и до включения - с ним правило и
+ * создаётся; у включённого смена периода сразу сохраняется.
+ */
+function PortfolioCard() {
+  const alerts = useAlerts();
+  const { create, update } = useAlertMutations();
+  const digest = alerts.data?.find((alert) => alert.type === 'PORTFOLIO_DIGEST');
+  const [draftPeriod, setDraftPeriod] = useState('7');
+  const period = digest?.days != null ? String(digest.days) : draftPeriod;
+  return (
+    <Card withBorder padding="md">
+      <Stack gap="xs">
+        <div>
+          <Text fw={500}>Портфель</Text>
+          <Text size="xs" c="dimmed">
+            По облигациям из{' '}
+            <Anchor component={Link} to="/portfolio" size="xs">
+              портфеля
+            </Anchor>{' '}
+            - добавлять каждую не нужно.
+          </Text>
+        </div>
+        <EventSwitch
+          label={PORTFOLIO_RISK_ALERT.label}
+          hint={PORTFOLIO_RISK_ALERT.hint}
+          alert={alerts.data?.find((alert) => alert.type === 'PORTFOLIO_RISK')}
+          onCreate={() => create.mutate({ type: 'PORTFOLIO_RISK' })}
+        />
+        <Group justify="space-between" align="center" gap="xs">
+          <EventSwitch
+            label={PORTFOLIO_DIGEST_ALERT.label}
+            hint={PORTFOLIO_DIGEST_ALERT.hint}
+            alert={digest}
+            onCreate={() => create.mutate({ type: 'PORTFOLIO_DIGEST', days: Number(period) })}
+          />
+          <SegmentedControl
+            size="xs"
+            aria-label="Период дайджеста"
+            data={DIGEST_PERIODS}
+            value={period}
+            onChange={(value) => (digest ? update.mutate({ id: digest.id, days: Number(value) }) : setDraftPeriod(value))}
+          />
+        </Group>
+      </Stack>
+    </Card>
   );
 }
 

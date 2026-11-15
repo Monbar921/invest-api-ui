@@ -404,7 +404,13 @@ export type EventAlertType = 'FLOATER_COUPON' | 'BOND_NEWS' | 'ISSUER_RATING' | 
 /** Новые облигации в выборке сохранённого фильтра; включается переключателем у фильтра, не через POST /alerts */
 export type FilterAlertType = 'SAVED_FILTER';
 
-export type AlertType = DateAlertType | PriceAlertType | EventAlertType | FilterAlertType;
+/**
+ * Правила по всему портфелю, без облигации, по одному на пользователя: монитор риска (понижение рейтинга, приостановка
+ * торгов, дефолт) и дайджест (days: 1 - раз в день, 7 - раз в неделю)
+ */
+export type PortfolioAlertType = 'PORTFOLIO_RISK' | 'PORTFOLIO_DIGEST';
+
+export type AlertType = DateAlertType | PriceAlertType | EventAlertType | FilterAlertType | PortfolioAlertType;
 
 /** UP - выросло до уровня или на порог, DOWN - снизилось, ANY - в любую сторону (только изменения цены) */
 export type AlertDirection = 'UP' | 'DOWN' | 'ANY';
@@ -412,7 +418,7 @@ export type AlertDirection = 'UP' | 'DOWN' | 'ANY';
 /** Правило уведомления пользователя по облигации */
 export interface Alert {
   id: number;
-  /** null - правило без облигации (KEY_RATE, SAVED_FILTER) */
+  /** null - правило без облигации (KEY_RATE, SAVED_FILTER, PORTFOLIO_RISK, PORTFOLIO_DIGEST) */
   ticker: string | null;
   /** null - облигации уже нет в системе */
   bondName: string | null;
@@ -421,7 +427,7 @@ export interface Alert {
   /** Сохранённый фильтр - только у SAVED_FILTER */
   filterId?: number | null;
   filterName?: string | null;
-  /** 1..60; только у правил по датам */
+  /** 1..60 у правил по датам; у PORTFOLIO_DIGEST - период: 1 (день) или 7 (неделя) */
   days: number | null;
   /** Только у правил по цене и доходности */
   direction: AlertDirection | null;

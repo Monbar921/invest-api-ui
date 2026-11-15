@@ -89,6 +89,9 @@ describe('PortfolioPage: аналитика', () => {
     expect(screen.getByText('Без рейтинга АКРА и НКР')).toBeInTheDocument();
     expect(screen.getByText('Переменный купон (флоатер)')).toBeInTheDocument();
     expect(screen.getByText('RUB')).toBeInTheDocument();
+    // доля всегда с двумя знаками: 100 - «100,00 %», не «100 %»
+    const currencies = screen.getByText('Валюта номинала').closest('.mantine-Card-root') as HTMLElement;
+    expect(within(currencies).getByText(normalized('100,00 %'))).toBeInTheDocument();
 
     // не оценённые - названы с причиной
     expect(screen.getByText('Не вошли в доли')).toBeInTheDocument();

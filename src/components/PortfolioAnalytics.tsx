@@ -27,6 +27,12 @@ const COUPON_TYPES: Record<string, string> = {
 };
 
 const compactNumberFormat = new Intl.NumberFormat('ru-RU', { notation: 'compact', maximumFractionDigits: 1 });
+const shareFormat = new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** Доля всегда с двумя знаками («18,60 %», «100,00 %»): рядом стоящие доли не должны выглядеть по-разному */
+function formatShare(value: number): string {
+  return `${shareFormat.format(value)} %`;
+}
 
 /**
  * «Аналитика» портфеля: структура (доли по эмитентам, секторам, рейтингам, валютам и типу купона, лестница
@@ -113,7 +119,7 @@ function Summary({ data }: { data: Analytics }) {
         модифицированная {formatYears(data.durationModified.value)}
         <Covered weighted={data.durationMacaulay} />
       </Stat>
-      <Stat title="Крупнейший эмитент" value={data.largestIssuer ? formatPercent(data.largestIssuer.share) : '—'}>
+      <Stat title="Крупнейший эмитент" value={data.largestIssuer ? formatShare(data.largestIssuer.share) : '—'}>
         {data.largestIssuer ? (data.largestIssuer.title ?? `эмитент ${data.largestIssuer.key}`) : 'эмитенты облигаций неизвестны'}
       </Stat>
       <Card withBorder padding="md" style={{ gridColumn: '1 / -1' }}>
@@ -133,7 +139,7 @@ function Summary({ data }: { data: Analytics }) {
               </Text>
             </Group>
             <Text size="xs" c="dimmed" mt={4}>
-              Оценка через модифицированную дюрацию, по {formatPercent(sensitivity.coveredShare)} стоимости портфеля: флоатеры и
+              Оценка через модифицированную дюрацию, по {formatShare(sensitivity.coveredShare)} стоимости портфеля: флоатеры и
               облигации без дюрации не учтены.
             </Text>
           </>
@@ -168,7 +174,7 @@ function Covered({ weighted }: { weighted: PortfolioAnalyticsWeighted }) {
   if (weighted.value == null) {
     return <>, данных нет</>;
   }
-  return weighted.coveredShare < 100 ? <>, по {formatPercent(weighted.coveredShare)} стоимости</> : null;
+  return weighted.coveredShare < 100 ? <>, по {formatShare(weighted.coveredShare)} стоимости</> : null;
 }
 
 /** Доли одного разреза полосками; «нет данных» - последней строкой, серой */
@@ -184,7 +190,8 @@ function ShareCard({
   noDataLabel?: string;
 }) {
   return (
-    <Card withBorder padding="md">
+    // в сетке карточка не тянется до высоты соседней: у короткого разреза не остаётся пустого места
+    <Card withBorder padding="md" style={{ alignSelf: 'start' }}>
       <Title order={5} mb="sm">
         {title}
       </Title>
@@ -193,21 +200,26 @@ function ShareCard({
           const name = share.key == null ? noDataLabel : label(share);
           return (
             <div key={share.key ?? '∅'} data-testid="share-row">
-              <Group justify="space-between" gap="xs" wrap="nowrap">
+              <Group justify="space-between" gap="xs" wrap="nowrap" align="flex-start">
                 <Tooltip label={share.tickers.join(', ')} multiline maw={320}>
-                  <Text size="sm" truncate c={share.key == null ? 'dimmed' : undefined}>
+                  {/* название переносится, а не обрезается: на телефоне подсказки по наведению нет */}
+                  <Text
+                    size="sm"
+                    c={share.key == null ? 'dimmed' : undefined}
+                    style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}
+                  >
                     {name}
                   </Text>
                 </Tooltip>
                 <Text size="sm" fw={500} style={{ whiteSpace: 'nowrap' }}>
-                  {formatPercent(share.share)}
+                  {formatShare(share.share)}
                 </Text>
               </Group>
               <Progress
                 value={share.share}
                 color={share.key == null ? 'gray.5' : 'teal.6'}
                 size="sm"
-                aria-label={`${name}: ${formatPercent(share.share)}`}
+                aria-label={`${name}: ${formatShare(share.share)}`}
               />
               <Text size="xs" c="dimmed">
                 {money(share.valueInRub, 'rub')}
@@ -241,13 +253,13 @@ function MaturityLadder({ shares }: { shares: PortfolioAnalyticsShare[] }) {
       <Group gap="md" mt="xs">
         {years.map((share) => (
           <Text size="xs" key={share.key}>
-            {share.key}: {formatPercent(share.share)}
+            {share.key}: {formatShare(share.share)}
           </Text>
         ))}
       </Group>
       {withoutDate && (
         <Text size="xs" c="dimmed" mt="xs">
-          Без даты погашения: {formatPercent(withoutDate.share)} ({money(withoutDate.valueInRub, 'rub')})
+          Без даты погашения: {formatShare(withoutDate.share)} ({money(withoutDate.valueInRub, 'rub')})
         </Text>
       )}
       <Text size="xs" c="dimmed" mt="xs">

@@ -25,4 +25,5 @@
 - [INVEST-001-analytics-landing](../../invest-api/docs/features/INVEST-001-analytics-landing/) - продуктовая аналитика с баннером согласия, лендинг для гостя на `/`
 - [INVEST-001-screener-data](../../invest-api/docs/features/INVEST-001-screener-data/) - колонки рейтинга, дюрации, спреда к ОФЗ и оборота, панель «Ещё фильтры», выгрузка в Excel / CSV, данные скринера в карточке
 - [INVEST-001-saved-filters](../../invest-api/docs/features/INVEST-001-saved-filters/) - «Мои фильтры» над таблицей облигаций (открыть, сохранить текущий с уведомлением), карточка «Фильтры облигаций» на странице «Уведомления» с переключателем уведомлений
+- [INVEST-001-portfolio-monitor](../../invest-api/docs/features/INVEST-001-portfolio-monitor/) - карточка «Портфель» на странице «Уведомления»: монитор риска и дайджест портфеля с периодом
 - [INVEST-001-broker-import](../../invest-api/docs/features/INVEST-001-broker-import/) - вкладка «Импорт» в портфеле: токен T-Invest только на чтение или файл отчёта, предпросмотр с выбором строк, отчёт импорта

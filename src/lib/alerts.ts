@@ -107,6 +107,24 @@ export const KEY_RATE_ALERT = {
   hint: 'пресс-релиз в день заседания',
 };
 
+export const PORTFOLIO_RISK_ALERT = {
+  type: 'PORTFOLIO_RISK' as const,
+  label: 'Риски по облигациям портфеля',
+  hint: 'понижение рейтинга (АКРА, НКР), приостановка торгов, дефолт и технический дефолт - одно сообщение на событие',
+};
+
+export const PORTFOLIO_DIGEST_ALERT = {
+  type: 'PORTFOLIO_DIGEST' as const,
+  label: 'Дайджест портфеля',
+  hint: 'стоимость и её изменение, выплаты периода, новости по облигациям; если нового нет - не приходит',
+};
+
+/** Период дайджеста - значение days правила */
+export const DIGEST_PERIODS: { value: string; label: string }[] = [
+  { value: '1', label: 'Раз в день' },
+  { value: '7', label: 'Раз в неделю' },
+];
+
 export function isPriceAlert(type: AlertType): type is PriceAlertType {
   return PRICE_ALERT_TYPES.some((item) => item.type === type);
 }
@@ -124,9 +142,15 @@ export function alertTypeLabel(type: AlertType): string {
     ALERT_TYPES.find((item) => item.type === type)?.label ??
     PRICE_ALERT_TYPES.find((item) => item.type === type)?.label ??
     EVENT_ALERT_TYPES.find((item) => item.type === type)?.label ??
+    PORTFOLIO_LABELS[type] ??
     (type === 'KEY_RATE' ? KEY_RATE_ALERT.label : type === 'SAVED_FILTER' ? 'Новые облигации в фильтре' : type)
   );
 }
+
+const PORTFOLIO_LABELS: Partial<Record<AlertType, string>> = {
+  PORTFOLIO_RISK: PORTFOLIO_RISK_ALERT.label,
+  PORTFOLIO_DIGEST: PORTFOLIO_DIGEST_ALERT.label,
+};
 
 const number = (value: number) => value.toLocaleString('ru-RU', { maximumFractionDigits: 2 });
 
@@ -161,6 +185,9 @@ export function describeAlert(alert: Alert): string {
   }
   if (alert.type === 'SAVED_FILTER') {
     return `Фильтр «${alert.filterName ?? ''}»`;
+  }
+  if (alert.type === 'PORTFOLIO_DIGEST') {
+    return `Дайджест портфеля ${alert.days === 7 ? 'раз в неделю' : 'раз в день'}`;
   }
   return alertTypeLabel(alert.type);
 }
