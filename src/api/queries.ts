@@ -52,6 +52,7 @@ import {
   fetchBrokers,
   fetchCalendarLink,
   fetchPortfolio,
+  fetchPortfolioAnalytics,
   fetchPortfolioCalendar,
   fetchTrades,
   updatePosition,
@@ -452,6 +453,8 @@ export const portfolioKeys = {
   // внутри portfolioKeys.all: изменение покупок перечитывает и календарь
   calendar: (to: string) => [...portfolioKeys.all, 'calendar', to] as const,
   calendarLink: () => [...portfolioKeys.all, 'calendar-link'] as const,
+  // внутри portfolioKeys.all: изменение покупок и продаж перечитывает и аналитику
+  analytics: () => [...portfolioKeys.all, 'analytics'] as const,
 };
 
 /** Портфель с текущими ценами; цены на бэке обновляются в течение дня - перечитываем при возврате на вкладку */
@@ -522,6 +525,16 @@ export function usePortfolioMutations() {
     }),
     remove: useMutation({ mutationFn: deletePosition, onSuccess }),
   };
+}
+
+/** Аналитика открытых позиций; цены обновляются в течение дня - как у портфеля */
+export function usePortfolioAnalytics() {
+  const { authenticated } = useSession();
+  return useQuery({
+    queryKey: portfolioKeys.analytics(),
+    queryFn: fetchPortfolioAnalytics,
+    enabled: authenticated,
+  });
 }
 
 /** Календарь выплат с сегодня по to */

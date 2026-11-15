@@ -777,6 +777,68 @@ export interface PortfolioCalendar {
   unknownTickers: string[];
 }
 
+/** Доля группы позиций в оценённой части портфеля */
+export interface PortfolioAnalyticsShare {
+  /**
+   * id эмитента Мосбиржи, сектор (government...), ступень рейтинга («AA-»), валюта (rub), FIXED / FLOATING, год
+   * погашения; null - «нет данных»
+   */
+  key: string | null;
+  /** У эмитента - короткое название, у рейтинга - ступень; иначе null */
+  title: string | null;
+  valueInRub: number;
+  /** %, доли одного разреза в сумме - 100 */
+  share: number;
+  /** Облигации группы по убыванию стоимости */
+  tickers: string[];
+}
+
+/** Средневзвешенная по стоимости величина */
+export interface PortfolioAnalyticsWeighted {
+  /** null - ни у одной позиции величины нет */
+  value: number | null;
+  /** Какая доля стоимости портфеля вошла в среднее, % */
+  coveredShare: number;
+}
+
+/** Изменение стоимости при сдвиге доходности: только облигации с постоянным купоном и дюрацией */
+export interface PortfolioRateSensitivity {
+  /** Сдвиг доходности, п.п. */
+  shiftPercent: number;
+  /** При росте доходности, ₽ (≤ 0) */
+  valueChangeUp: number;
+  /** При снижении доходности, ₽ (≥ 0) */
+  valueChangeDown: number;
+  /** |Изменение| в % к стоимости учтённых облигаций */
+  changePercent: number;
+  coveredShare: number;
+}
+
+export type PortfolioUnvaluedReason = 'UNKNOWN_BOND' | 'NO_PRICE' | 'NO_RATE';
+
+/** Структура и риск открытых позиций портфеля */
+export interface PortfolioAnalytics {
+  /** Стоимость оценённых позиций в рублях; null - оценённых нет */
+  valueInRub: number | null;
+  /** Облигаций в открытых позициях, с неоценёнными */
+  bonds: number;
+  /** Позиции без оценки в рублях - в долях их нет */
+  unvalued: { ticker: string; bondName: string | null; reason: PortfolioUnvaluedReason }[];
+  issuers: PortfolioAnalyticsShare[];
+  sectors: PortfolioAnalyticsShare[];
+  /** От лучшей ступени к худшей */
+  ratings: PortfolioAnalyticsShare[];
+  currencies: PortfolioAnalyticsShare[];
+  couponTypes: PortfolioAnalyticsShare[];
+  /** Лестница погашений: год погашения по возрастанию */
+  maturities: PortfolioAnalyticsShare[];
+  yieldToMaturity: PortfolioAnalyticsWeighted;
+  durationMacaulay: PortfolioAnalyticsWeighted;
+  durationModified: PortfolioAnalyticsWeighted;
+  largestIssuer: PortfolioAnalyticsShare | null;
+  rateSensitivity: PortfolioRateSensitivity | null;
+}
+
 /** Личная ссылка на календарь выплат (.ics) */
 export interface CalendarLink {
   enabled: boolean;

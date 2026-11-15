@@ -20,6 +20,7 @@ import {
 import {
   IconArrowsExchange,
   IconCalendarDollar,
+  IconChartPie,
   IconCash,
   IconChevronDown,
   IconChevronRight,
@@ -51,6 +52,7 @@ import { ErrorState } from '../components/ErrorState';
 import { LoginRequired } from '../components/LoginRequired';
 import { NumberField } from '../components/NumberField';
 import { ClosedPositions, IncomeCells, IncomeSummaryCard, TaxRateControl } from '../components/PortfolioIncome';
+import { PortfolioAnalytics } from '../components/PortfolioAnalytics';
 import { PortfolioImport } from '../components/PortfolioImport';
 import { PortfolioPayments } from '../components/PortfolioPayments';
 import { PortfolioTrades } from '../components/PortfolioTrades';
@@ -70,7 +72,7 @@ interface PresetBond {
 
 /**
  * «Портфель»: покупки облигаций - строкой на облигацию, их текущая стоимость, доход от цены покупки и полный доход
- * (купоны, НКД, комиссии, налог, XIRR); закрытые позиции, сделки и выплаты
+ * (купоны, НКД, комиссии, налог, XIRR); закрытые позиции, сделки, выплаты и аналитика
  */
 export function PortfolioPage() {
   const { authenticated } = useSession();
@@ -88,8 +90,9 @@ export function PortfolioPage() {
 const POSITIONS_TAB = 'positions';
 const TRADES_TAB = 'trades';
 const PAYMENTS_TAB = 'payments';
+const ANALYTICS_TAB = 'analytics';
 const IMPORT_TAB = 'import';
-const OTHER_TABS = [TRADES_TAB, PAYMENTS_TAB, IMPORT_TAB];
+const OTHER_TABS = [TRADES_TAB, PAYMENTS_TAB, ANALYTICS_TAB, IMPORT_TAB];
 
 function Portfolio() {
   // ставка НДФЛ полного дохода - как в калькуляторе, по умолчанию 13 %
@@ -130,6 +133,9 @@ function Portfolio() {
           </Tabs.Tab>
           <Tabs.Tab value={PAYMENTS_TAB} leftSection={<IconCalendarDollar size={16} />}>
             Выплаты
+          </Tabs.Tab>
+          <Tabs.Tab value={ANALYTICS_TAB} leftSection={<IconChartPie size={16} />}>
+            Аналитика
           </Tabs.Tab>
           <Tabs.Tab value={IMPORT_TAB} leftSection={<IconFileImport size={16} />}>
             Импорт
@@ -202,6 +208,9 @@ function Portfolio() {
         </Tabs.Panel>
         <Tabs.Panel value={PAYMENTS_TAB}>
           <PortfolioPayments />
+        </Tabs.Panel>
+        <Tabs.Panel value={ANALYTICS_TAB}>
+          <PortfolioAnalytics />
         </Tabs.Panel>
         <Tabs.Panel value={IMPORT_TAB}>
           <PortfolioImport />

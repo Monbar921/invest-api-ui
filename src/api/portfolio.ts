@@ -3,6 +3,7 @@ import type {
   Broker,
   CalendarLink,
   Portfolio,
+  PortfolioAnalytics,
   PortfolioCalendar,
   PortfolioPosition,
   PortfolioPositionRequest,
@@ -65,6 +66,11 @@ export function fetchBrokers(): Promise<Broker[]> {
 export function fetchPortfolioCalendar(to?: string): Promise<PortfolioCalendar> {
   const query = to ? `?${new URLSearchParams({ to })}` : '';
   return request<PortfolioCalendar>(`${PORTFOLIO_PATH}/calendar${query}`);
+}
+
+/** Структура и риск открытых позиций: доли, лестница погашений, средние доходность и дюрация, чувствительность к ставке */
+export function fetchPortfolioAnalytics(): Promise<PortfolioAnalytics> {
+  return request<PortfolioAnalytics>(`${PORTFOLIO_PATH}/analytics`);
 }
 
 /** Есть ли личная ссылка на календарь; адреса в ответе нет */
